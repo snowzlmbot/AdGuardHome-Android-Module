@@ -1,0 +1,13 @@
+#!/bin/sh
+record=${IPTABLES_RECORD_FILE:-/tmp/iptables-record.log}
+state=${IPTABLES_STATE_FILE:-${record}.state}
+printf '%s\n' "$0 $*" >> "$record"
+case "$1" in
+    -N) printf '%s\n' "$*" >> "$state"; exit 0 ;;
+    -C) grep -F -- "$*" "$state" >/dev/null 2>&1; exit $? ;;
+    -I|-A) printf '%s\n' "$*" >> "$state"; exit 0 ;;
+    -D) sed -i "1{/$(printf '%s' "$*")/d;}" "$state" 2>/dev/null || true; exit 0 ;;
+    -F) sed -i "/$2/d" "$state" 2>/dev/null || true; exit 0 ;;
+    -X) sed -i "/$2/d" "$state" 2>/dev/null || true; exit 0 ;;
+esac
+exit 0
