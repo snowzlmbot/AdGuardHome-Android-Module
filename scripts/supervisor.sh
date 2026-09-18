@@ -37,7 +37,12 @@ supervisor_enabled() {
 supervisor_run_worker() {
     supervisor_name=$1
     supervisor_worker="$supervisor_worker_dir/$supervisor_name-worker.sh"
-    [ -x "$supervisor_worker" ] || supervisor_worker="$MODDIR/$supervisor_name-worker.sh"
+    if [ ! -x "$supervisor_worker" ]; then
+        case "$supervisor_name" in
+            proxy|file) supervisor_worker="$SCRIPT_DIR/adapters/$supervisor_name-worker.sh" ;;
+            *) supervisor_worker="$SCRIPT_DIR/$supervisor_name-worker.sh" ;;
+        esac
+    fi
     [ -x "$supervisor_worker" ] || return 0
     "$supervisor_worker" once >"$AGH_LOG_DIR/$supervisor_name-worker.log" 2>&1
     supervisor_rc=$?
@@ -45,6 +50,34 @@ supervisor_run_worker() {
         log_message supervisor "$supervisor_name worker exited with status $supervisor_rc"
     fi
     return "$supervisor_rc"
+}
+
+supervisor_consume_control() {
+    supervisor_control_dir="$AGH_RUN_DIR/control"
+    [ -d "$supervisor_control_dir" ] || return 0
+    if [ -f "$supervisor_control_dir/pause" ]; then
+        : > "$AGH_STATE_DIR/paused"
+        supervisor_request firewall remove
+        rm -f "$supervisor_control_dir/pause"
+    fi
+    if [ -f "$supervisor_control_dir/resume" ]; then
+        rm -f "$AGH_STATE_DIR/paused"
+        rm -f "$supervisor_control_dir/resume"
+    fi
+    if [ -f "$supervisor_control_dir/disable" ]; then
+        : > "$AGH_STATE_DIR/core.disabled"
+        supervisor_request firewall remove
+        rm -f "$supervisor_control_dir/disable"
+    fi
+    if [ -f "$supervisor_control_dir/enable" ]; then
+        rm -f "$AGH_STATE_DIR/core.disabled"
+        rm -f "$supervisor_control_dir/enable"
+    fi
+    if [ -f "$supervisor_control_dir/restart-core" ]; then
+        supervisor_worker="$SCRIPT_DIR/core-worker.sh"
+        [ -x "$supervisor_worker" ] && "$supervisor_worker" stop >/dev/null 2>&1 || true
+        rm -f "$supervisor_control_dir/restart-core"
+    fi
 }
 
 supervisor_aggregate() {
@@ -63,6 +96,7 @@ supervisor_aggregate() {
 
 supervisor_once() {
     ensure_dirs || return 1
+    supervisor_consume_control
     supervisor_run_worker core || true
     supervisor_core_state=$(supervisor_state_value "$AGH_STATE_DIR/core.state" state || printf 'unknown')
     supervisor_core_authorized=$(supervisor_state_value "$AGH_STATE_DIR/core.state" firewall_authorized || printf '0')
