@@ -130,7 +130,7 @@ proxy_once() {
 case "${1:-once}" in
     once) proxy_once ;;
     daemon) while [ ! -f "$AGH_RUN_DIR/stop" ]; do proxy_once || true; sleep 5; done ;;
-    --clean|clean) proxy_clean ;;
+    --clean|clean|restore) proxy_clean ;;
     stop) proxy_clean ;;
     *) printf 'usage: %s {once|daemon|--clean|stop}\n' "$0" >&2; exit 2 ;;
 esac

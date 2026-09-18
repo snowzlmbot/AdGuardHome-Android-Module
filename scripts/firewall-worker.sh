@@ -174,6 +174,6 @@ firewall_daemon() {
 case "${1:-once}" in
     once) firewall_once ;;
     daemon) firewall_daemon ;;
-    stop) firewall_remove ;;
+    stop|remove) firewall_remove ;;
     *) printf 'usage: %s {once|daemon|stop}\n' "$0" >&2; exit 2 ;;
 esac

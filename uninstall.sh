@@ -2,25 +2,31 @@
 
 MODDIR=${0%/*}
 export MODDIR
+. "$MODDIR/scripts/lib/common.sh"
+. "$MODDIR/scripts/lib/log.sh"
 
-if [ -f "$MODDIR/scripts/lib/common.sh" ]; then
-    . "$MODDIR/scripts/lib/common.sh"
-fi
-if [ -f "$MODDIR/scripts/lib/log.sh" ]; then
-    . "$MODDIR/scripts/lib/log.sh"
-fi
+AGH_UNINSTALL_REPORT=${AGH_UNINSTALL_REPORT:-/data/adb/agh-uninstall-report.log}
+uninstall_warning=0
+mkdir -p "${AGH_UNINSTALL_REPORT%/*}"
 
 if [ -x "$MODDIR/scripts/supervisor.sh" ]; then
-    "$MODDIR/scripts/supervisor.sh" stop >/dev/null 2>&1
+    "$MODDIR/scripts/supervisor.sh" stop >/dev/null 2>&1 || uninstall_warning=1
 fi
-if [ -x "$MODDIR/scripts/firewall-worker.sh" ]; then
-    "$MODDIR/scripts/firewall-worker.sh" remove >/dev/null 2>&1
+if [ -x "$MODDIR/scripts/core-worker.sh" ]; then
+    "$MODDIR/scripts/core-worker.sh" stop >/dev/null 2>&1 || uninstall_warning=1
 fi
-if [ -x "$MODDIR/scripts/adapters/proxy-worker.sh" ]; then
-    "$MODDIR/scripts/adapters/proxy-worker.sh" restore >/dev/null 2>&1
-fi
-if [ -x "$MODDIR/scripts/adapters/file-worker.sh" ]; then
-    "$MODDIR/scripts/adapters/file-worker.sh" restore >/dev/null 2>&1
+if [ -x "$MODDIR/scripts/restore.sh" ]; then
+    "$MODDIR/scripts/restore.sh" >/dev/null 2>&1 || uninstall_warning=1
 fi
 
-log_message uninstall "module cleanup requested"
+if [ -d "$AGH_ROOT" ]; then
+    log_message uninstall "module cleanup started"
+    rm -rf "$AGH_ROOT" || uninstall_warning=1
+fi
+{
+    printf 'completed=true\n'
+    printf 'warning=%s\n' "$uninstall_warning"
+    printf 'data_removed=%s\n' "$( [ ! -e "$AGH_ROOT" ] && printf true || printf false )"
+} > "$AGH_UNINSTALL_REPORT"
+chmod 0600 "$AGH_UNINSTALL_REPORT"
+exit 0

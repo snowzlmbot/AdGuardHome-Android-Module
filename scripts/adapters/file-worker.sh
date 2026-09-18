@@ -166,7 +166,7 @@ file_once() {
 case "${1:-once}" in
     once) file_once ;;
     daemon) while [ ! -f "$AGH_RUN_DIR/stop" ]; do file_once || true; sleep 5; done ;;
-    --clean|clean) file_clean ;;
+    --clean|clean|restore) file_clean ;;
     stop) file_clean ;;
     *) printf 'usage: %s {once|daemon|--clean|stop}\n' "$0" >&2; exit 2 ;;
 esac
