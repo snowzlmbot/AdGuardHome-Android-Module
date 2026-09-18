@@ -1,11 +1,12 @@
 #!/system/bin/sh
 
 SCRIPT_DIR=${0%/*}
-MODDIR=${MODDIR:-${SCRIPT_DIR%/*}}
+MODULE_SCRIPTS_DIR=${SCRIPT_DIR%/*}
+MODDIR=${MODDIR:-${MODULE_SCRIPTS_DIR%/*}}
 export MODDIR
-. "$SCRIPT_DIR/lib/common.sh"
-. "$SCRIPT_DIR/lib/atomic.sh"
-. "$SCRIPT_DIR/lib/log.sh"
+. "$MODULE_SCRIPTS_DIR/lib/common.sh"
+. "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
+. "$MODULE_SCRIPTS_DIR/lib/log.sh"
 
 network_state_write() {
     network_state_value=$1

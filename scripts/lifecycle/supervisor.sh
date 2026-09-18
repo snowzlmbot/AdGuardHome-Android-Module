@@ -1,12 +1,13 @@
 #!/system/bin/sh
 
 SCRIPT_DIR=${0%/*}
-MODDIR=${MODDIR:-${SCRIPT_DIR%/*}}
+MODULE_SCRIPTS_DIR=${SCRIPT_DIR%/*}
+MODDIR=${MODDIR:-${MODULE_SCRIPTS_DIR%/*}}
 export MODDIR
-. "$SCRIPT_DIR/lib/common.sh"
-. "$SCRIPT_DIR/lib/atomic.sh"
-. "$SCRIPT_DIR/lib/process.sh"
-. "$SCRIPT_DIR/lib/log.sh"
+. "$MODULE_SCRIPTS_DIR/lib/common.sh"
+. "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
+. "$MODULE_SCRIPTS_DIR/lib/process.sh"
+. "$MODULE_SCRIPTS_DIR/lib/log.sh"
 
 supervisor_worker_dir=${SUPERVISOR_WORKER_DIR:-$MODDIR}
 
@@ -39,7 +40,10 @@ supervisor_run_worker() {
     supervisor_worker="$supervisor_worker_dir/$supervisor_name-worker.sh"
     if [ ! -x "$supervisor_worker" ]; then
         case "$supervisor_name" in
-            proxy|file) supervisor_worker="$SCRIPT_DIR/adapters/$supervisor_name-worker.sh" ;;
+            core) supervisor_worker="$SCRIPT_DIR/../core/core-worker.sh" ;;
+            network) supervisor_worker="$SCRIPT_DIR/../network/network-worker.sh" ;;
+            firewall) supervisor_worker="$SCRIPT_DIR/../firewall/firewall-worker.sh" ;;
+            proxy|file) supervisor_worker="$SCRIPT_DIR/../adapters/$supervisor_name-worker.sh" ;;
             *) supervisor_worker="$SCRIPT_DIR/$supervisor_name-worker.sh" ;;
         esac
     fi
@@ -74,7 +78,7 @@ supervisor_consume_control() {
         rm -f "$supervisor_control_dir/enable"
     fi
     if [ -f "$supervisor_control_dir/restart-core" ]; then
-        supervisor_worker="$SCRIPT_DIR/core-worker.sh"
+        supervisor_worker="$SCRIPT_DIR/../core/core-worker.sh"
         [ -x "$supervisor_worker" ] && "$supervisor_worker" stop >/dev/null 2>&1 || true
         rm -f "$supervisor_control_dir/restart-core"
     fi

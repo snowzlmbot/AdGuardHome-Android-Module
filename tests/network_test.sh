@@ -18,7 +18,7 @@ cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
 
 run_snapshot() {
     printf '%s\n' "$1" > "$fixture/network.snapshot"
-    NETWORK_SNAPSHOT_FILE="$fixture/network.snapshot" sh "$ROOT/scripts/network-worker.sh" once
+    NETWORK_SNAPSHOT_FILE="$fixture/network.snapshot" sh "$ROOT/scripts/network/network-worker.sh" once
 }
 
 run_snapshot 'network=wifi

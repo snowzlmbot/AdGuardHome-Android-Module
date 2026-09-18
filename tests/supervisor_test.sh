@@ -44,13 +44,13 @@ export FAKE_CORE_STATE=ready
 export FAKE_FIREWALL_STATE=failed
 export FAKE_PROXY_STATE=failed
 export FAKE_FILE_STATE=failed
-sh "$ROOT/scripts/supervisor.sh" once || true
+sh "$ROOT/scripts/lifecycle/supervisor.sh" once || true
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'optional failure changed core'
 grep -F 'state=failed' "$AGH_STATE_DIR/proxy.state" >/dev/null || fail 'proxy failure not isolated'
 grep -F 'state=failed' "$AGH_STATE_DIR/file.state" >/dev/null || fail 'file failure not isolated'
 
 export FAKE_CORE_STATE=failed
-sh "$ROOT/scripts/supervisor.sh" once || true
+sh "$ROOT/scripts/lifecycle/supervisor.sh" once || true
 [ -f "$AGH_RUN_DIR/firewall/request" ] || fail 'core failure did not request firewall removal'
 grep -F 'remove' "$AGH_RUN_DIR/firewall/request" >/dev/null || fail 'firewall removal request malformed'
 

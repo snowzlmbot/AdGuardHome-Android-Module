@@ -9,7 +9,7 @@ export MODDIR
 ensure_dirs || exit 1
 
 command=${1:-status}
-control="$MODDIR/scripts/control.sh"
+control="$MODDIR/scripts/lifecycle/control.sh"
 
 case "$command" in
     status|pause|resume|enable|disable|restart-core|enable-proxy|disable-proxy|enable-file|disable-file)

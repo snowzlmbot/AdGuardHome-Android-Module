@@ -1,13 +1,14 @@
 #!/system/bin/sh
 
 SCRIPT_DIR=${0%/*}
-MODDIR=${MODDIR:-${SCRIPT_DIR%/*}}
+MODULE_SCRIPTS_DIR=${SCRIPT_DIR%/*}
+MODDIR=${MODDIR:-${MODULE_SCRIPTS_DIR%/*}}
 export MODDIR
-. "$SCRIPT_DIR/lib/common.sh"
-. "$SCRIPT_DIR/lib/atomic.sh"
-. "$SCRIPT_DIR/lib/process.sh"
-. "$SCRIPT_DIR/lib/platform.sh"
-. "$SCRIPT_DIR/lib/log.sh"
+. "$MODULE_SCRIPTS_DIR/lib/common.sh"
+. "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
+. "$MODULE_SCRIPTS_DIR/lib/process.sh"
+. "$MODULE_SCRIPTS_DIR/lib/platform.sh"
+. "$MODULE_SCRIPTS_DIR/lib/log.sh"
 
 FW_V4_NAT=AGHADM4N
 FW_V4_FILTER=AGHADF4

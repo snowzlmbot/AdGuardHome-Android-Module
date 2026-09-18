@@ -19,4 +19,4 @@ A root-capable module cannot protect against a malicious root process or a compr
 
 ## Reporting
 
-Do not include passwords, tokens, private device identifiers, raw diagnostic dumps, or private host paths in a public issue. Use a minimal reproduction and redact `scripts/diagnostics.sh` output before sharing.
+Do not include passwords, tokens, private device identifiers, raw diagnostic dumps, or private host paths in a public issue. Use a minimal reproduction and redact `scripts/diagnostics/diagnostics.sh` output before sharing.

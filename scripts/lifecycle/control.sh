@@ -1,11 +1,12 @@
 #!/system/bin/sh
 
 SCRIPT_DIR=${0%/*}
-MODDIR=${MODDIR:-${SCRIPT_DIR%/*}}
+MODULE_SCRIPTS_DIR=${SCRIPT_DIR%/*}
+MODDIR=${MODDIR:-${MODULE_SCRIPTS_DIR%/*}}
 export MODDIR
-. "$SCRIPT_DIR/lib/common.sh"
-. "$SCRIPT_DIR/lib/atomic.sh"
-. "$SCRIPT_DIR/lib/log.sh"
+. "$MODULE_SCRIPTS_DIR/lib/common.sh"
+. "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
+. "$MODULE_SCRIPTS_DIR/lib/log.sh"
 
 control_set_adapter() {
     control_adapter_name=$1
@@ -26,9 +27,9 @@ control_set_adapter() {
 control_command=${1:-status}
 case "$control_command" in
     enable-proxy) control_set_adapter proxy true; printf '%s\n' 'request=enable-proxy' ;;
-    disable-proxy) control_set_adapter proxy false; [ -x "$SCRIPT_DIR/adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/adapters/proxy-worker.sh" --clean || true; printf '%s\n' 'request=disable-proxy' ;;
+    disable-proxy) control_set_adapter proxy false; [ -x "$SCRIPT_DIR/../adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/../adapters/proxy-worker.sh" --clean || true; printf '%s\n' 'request=disable-proxy' ;;
     enable-file) control_set_adapter file true; printf '%s\n' 'request=enable-file' ;;
-    disable-file) control_set_adapter file false; [ -x "$SCRIPT_DIR/adapters/file-worker.sh" ] && "$SCRIPT_DIR/adapters/file-worker.sh" --clean || true; printf '%s\n' 'request=disable-file' ;;
+    disable-file) control_set_adapter file false; [ -x "$SCRIPT_DIR/../adapters/file-worker.sh" ] && "$SCRIPT_DIR/../adapters/file-worker.sh" --clean || true; printf '%s\n' 'request=disable-file' ;;
     pause|resume|enable|disable|restart-core)
         ensure_dirs || exit 1
         control_request_dir="$AGH_RUN_DIR/control"

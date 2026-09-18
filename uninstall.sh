@@ -9,14 +9,14 @@ AGH_UNINSTALL_REPORT=${AGH_UNINSTALL_REPORT:-/data/adb/agh-uninstall-report.log}
 uninstall_warning=0
 mkdir -p "${AGH_UNINSTALL_REPORT%/*}"
 
-if [ -x "$MODDIR/scripts/supervisor.sh" ]; then
-    "$MODDIR/scripts/supervisor.sh" stop >/dev/null 2>&1 || uninstall_warning=1
+if [ -x "$MODDIR/scripts/lifecycle/supervisor.sh" ]; then
+    "$MODDIR/scripts/lifecycle/supervisor.sh" stop >/dev/null 2>&1 || uninstall_warning=1
 fi
-if [ -x "$MODDIR/scripts/core-worker.sh" ]; then
-    "$MODDIR/scripts/core-worker.sh" stop >/dev/null 2>&1 || uninstall_warning=1
+if [ -x "$MODDIR/scripts/core/core-worker.sh" ]; then
+    "$MODDIR/scripts/core/core-worker.sh" stop >/dev/null 2>&1 || uninstall_warning=1
 fi
-if [ -x "$MODDIR/scripts/restore.sh" ]; then
-    "$MODDIR/scripts/restore.sh" >/dev/null 2>&1 || uninstall_warning=1
+if [ -x "$MODDIR/scripts/lifecycle/restore.sh" ]; then
+    "$MODDIR/scripts/lifecycle/restore.sh" >/dev/null 2>&1 || uninstall_warning=1
 fi
 
 if [ -d "$AGH_ROOT" ]; then

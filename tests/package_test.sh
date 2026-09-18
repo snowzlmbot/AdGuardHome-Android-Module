@@ -13,7 +13,10 @@ for asset in AdGuardHome_linux_arm64.tar.gz AdGuardHome_linux_armv7.tar.gz; do
     cp "$source_asset" "$fixture/cache/$asset"
 done
 
-ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.0 0.107.79 "$fixture/out" > "$fixture/result"
+(
+    cd "$fixture"
+    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.0 0.107.79 out > "$fixture/result"
+)
 package=$(sed -n '1p' "$fixture/result")
 [ -f "$package" ] || fail 'package was not created'
 unzip -Z1 "$package" > "$fixture/list"

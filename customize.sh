@@ -22,7 +22,7 @@ unzip -o "$ZIPFILE" 'module.prop' 'scripts/*' 'config/*' 'targets/*' 'bin/*' 'LI
 . "$MODPATH/scripts/lib/platform.sh"
 . "$MODPATH/scripts/lib/credentials.sh"
 . "$MODPATH/scripts/lib/config.sh"
-. "$MODPATH/scripts/migrate.sh"
+. "$MODPATH/scripts/lifecycle/migrate.sh"
 
 ensure_dirs || {
     ui_print "! Cannot create persistent data directories"

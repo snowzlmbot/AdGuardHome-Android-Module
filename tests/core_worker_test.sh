@@ -30,16 +30,16 @@ export CORE_PORT_PROBE_CMD="$ROOT/tests/fixtures/probe-success.sh"
 export CORE_START_WAIT=0
 export CORE_TEST_MODE=1
 
-sh "$ROOT/scripts/core-worker.sh" once || fail 'core did not start'
+sh "$ROOT/scripts/core/core-worker.sh" once || fail 'core did not start'
 grep -F -- '--config ' "$FAKE_CORE_ARGS" >/dev/null || fail 'config argument missing'
 grep -F -- '--work-dir ' "$FAKE_CORE_ARGS" >/dev/null || fail 'work-dir argument missing'
 grep -F -- '--no-check-update' "$FAKE_CORE_ARGS" >/dev/null || fail 'no-check-update argument missing'
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'core not ready'
 grep -F 'firewall_authorized=1' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'firewall authorization missing'
 
-sh "$ROOT/scripts/core-worker.sh" stop || fail 'core stop failed'
+sh "$ROOT/scripts/core/core-worker.sh" stop || fail 'core stop failed'
 rm -f "$AGH_ROOT/bin/AdGuardHome"
-if sh "$ROOT/scripts/core-worker.sh" once; then fail 'missing core accepted'; fi
+if sh "$ROOT/scripts/core/core-worker.sh" once; then fail 'missing core accepted'; fi
 grep -F 'state=failed' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'missing core state not failed'
 if grep -F 'firewall_authorized=1' "$AGH_STATE_DIR/core.state" >/dev/null; then fail 'failed core authorized firewall'; fi
 

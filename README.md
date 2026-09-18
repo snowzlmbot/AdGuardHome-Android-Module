@@ -41,6 +41,10 @@ Proxy integration is disabled by default. It only accepts explicitly allowlisted
 
 File-level ad cleanup is disabled by default. It requires an explicit target manifest, rejects protected paths and symlinks, never uses unconditional `chattr +i`, and stops at the first unsafe target. It must not be treated as a replacement for DNS filtering.
 
+## Repository layout
+
+See [`docs/MODULE_LAYOUT.md`](docs/MODULE_LAYOUT.md) for the standardized module-root layout and A+ component boundaries.
+
 ## Safety behavior
 
 - A failed optional adapter does not stop AdGuard Home.

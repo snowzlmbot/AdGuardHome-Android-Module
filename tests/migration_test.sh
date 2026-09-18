@@ -6,7 +6,7 @@ export MODDIR="$ROOT"
 . "$ROOT/scripts/lib/common.sh"
 . "$ROOT/scripts/lib/atomic.sh"
 . "$ROOT/scripts/lib/config.sh"
-. "$ROOT/scripts/migrate.sh"
+. "$ROOT/scripts/lifecycle/migrate.sh"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 assert_file_contains() { grep -F "$2" "$1" >/dev/null 2>&1 || fail "$3"; }

@@ -22,7 +22,7 @@ printf 'password=super-secret\n' > "$AGH_STATE_DIR/credentials.conf"
 printf 'serialno=private-device\npassword=super-secret\n' > "$AGH_LOG_DIR/private.log"
 printf 'web_port=35001\ndns_port=35002\n' > "$AGH_STATE_DIR/ports.conf"
 
-output=$(sh "$ROOT/scripts/diagnostics.sh")
+output=$(sh "$ROOT/scripts/diagnostics/diagnostics.sh")
 grep -F 'core=ready' <<EOF >/dev/null || fail 'core state missing'
 $output
 EOF
