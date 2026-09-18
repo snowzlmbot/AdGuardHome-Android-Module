@@ -49,7 +49,7 @@ jobs:
         run: |
           package=$(sed -n '1p' package-result.txt)
           test -f "$package"
-          sha256sum "$package" | tee dist/SHA256SUMS
+          (cd dist && sha256sum "$(basename "$package")" | tee SHA256SUMS)
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
