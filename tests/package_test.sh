@@ -6,13 +6,7 @@ fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
-mkdir -p "$fixture/cache" "$fixture/out"
-for asset in AdGuardHome_linux_arm64.tar.gz AdGuardHome_linux_armv7.tar.gz; do
-    source_asset="/tmp/${asset%.tar.gz}_v0.107.79.tar.gz"
-    [ -f "$source_asset" ] || fail "missing cached official asset: $source_asset"
-    cp "$source_asset" "$fixture/cache/$asset"
-done
-
+mkdir -p "$fixture/out"
 (
     cd "$fixture"
     ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.0 0.107.79 out > "$fixture/result"
