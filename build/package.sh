@@ -18,6 +18,8 @@ build_tmp=$(mktemp -d)
 trap 'rm -rf "$build_tmp"' EXIT
 stage="$build_tmp/module"
 mkdir -p "$stage" "$OUTPUT_DIR" "$ASSET_CACHE_DIR"
+OUTPUT_DIR=$(CDPATH= cd -- "$OUTPUT_DIR" && pwd -P)
+ASSET_CACHE_DIR=$(CDPATH= cd -- "$ASSET_CACHE_DIR" && pwd -P)
 
 copy_root_file() {
     copy_file=$1

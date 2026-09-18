@@ -40,7 +40,9 @@ jobs:
           chmod +x tests/static/check-shell.sh
           BUSYBOX_BIN=busybox tests/static/check-shell.sh .
       - name: Package
+        shell: bash
         run: |
+          set -o pipefail
           chmod +x build/package.sh
           build/package.sh "${{ steps.version.outputs.module }}" "${{ steps.version.outputs.agh }}" dist | tee package-result.txt
       - name: Verify package checksum

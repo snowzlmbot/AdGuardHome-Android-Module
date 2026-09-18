@@ -40,13 +40,13 @@ A+ 采用“生命周期协调器 + 独立功能组件”：
 
 ```text
 service.sh
-└── supervisor.sh                 # 仅控制面，不实现业务逻辑
-    ├── core-worker.sh            # AdGuard Home 进程
-    ├── firewall-worker.sh        # 本模块专属 iptables/ip6tables 规则
-    ├── network-worker.sh         # 网络/VPN/模式状态计算
-    ├── proxy-worker.sh           # 默认关闭，代理配置适配
-    ├── file-worker.sh            # 默认关闭，文件级去广告
-    └── diagnostics.sh            # 按需执行
+└── scripts/lifecycle/supervisor.sh   # 仅控制面，不实现业务逻辑
+    ├── scripts/core/core-worker.sh   # AdGuard Home 进程
+    ├── scripts/firewall/firewall-worker.sh # 本模块专属 iptables/ip6tables 规则
+    ├── scripts/network/network-worker.sh   # 网络/VPN/模式状态计算
+    ├── scripts/adapters/proxy-worker.sh    # 默认关闭，代理配置适配
+    ├── scripts/adapters/file-worker.sh     # 默认关闭，文件级去广告
+    └── scripts/diagnostics/diagnostics.sh  # 按需执行
 ```
 
 每个组件拥有独立的 PID、锁、状态、请求和错误文件。组件分别写入独立日志。supervisor 只负责启动、停止、健康检查、状态汇总和依赖协调。
