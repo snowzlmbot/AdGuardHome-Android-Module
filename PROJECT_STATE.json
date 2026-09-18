@@ -7,54 +7,129 @@
     "root": ".",
     "purpose": "Analyze and combine two AdGuard Home Magisk/KernelSU modules with the owner modified version, build an improved module, and publish a credited public GitHub repository."
   },
-  "revision": 0,
-  "phase": "created",
-  "updatedAt": "2026-09-18T11:52:49Z",
+  "revision": 6,
+  "phase": "planned",
+  "updatedAt": "2026-09-18T13:55:07Z",
   "updatedBy": {
     "runtime": "hermes",
     "profile": "default",
     "actor": "ZLMAIonebot"
   },
-  "goal": "Analyze and combine two AdGuard Home Magisk/KernelSU modules with the owner modified version, build an improved module, and publish a credited public GitHub repository.",
-  "summary": "Project initialized; current work is not yet planned.",
-  "done": [],
+  "goal": "Finalize A+ modular design for a safe Magisk/KernelSU AdGuard Home module, then implement, verify, and publish with explicit attribution and third-party notices.",
+  "summary": "A+ modular design draft written to docs/DESIGN.md: isolated core, firewall, network, proxy, file, and diagnostics components with explicit failure boundaries and rollback rules.",
+  "done": [
+    "Pinned 410154425/AdGuardHome_magisk at 0375eeafc5b42b14933cbc3f496c67ff84d9cd1c and verified snowzlmbot mirror matches.",
+    "Pinned liuzq2002/Adguard-Home-For-Magisk-Mod at ce9c57268614ee939fa25426e9912b62eac9cfed and verified latest release asset SHA-256.",
+    "Fixed comparison of both upstream modules and KernelSU compatibility baseline",
+    "Confirmed public repository target snowzlmbot/AdGuardHome-Android-Module",
+    "Confirmed Magisk+KernelSU arm64+armv7, three DNS modes, random credentials, optional proxy/file adapters, migration, verified Release update policy",
+    "Recorded A+ modular architecture decision",
+    "Wrote docs/DESIGN.md with lifecycle, data flow, migration, security, attribution, and verification requirements"
+  ],
   "inProgress": [],
   "next": [
-    "Define the first evidence-backed task."
+    "Load writing-plans and create an executable implementation plan from docs/DESIGN.md"
   ],
   "blockers": [],
   "decisions": [],
-  "evidence": [],
+  "evidence": [
+    {
+      "kind": "git",
+      "ref": "410154425/AdGuardHome_magisk@0375eeafc5b42b14933cbc3f496c67ff84d9cd1c",
+      "summary": "Original upstream source pinned and mirror matched.",
+      "verifiedAt": "2026-09-18T12:05:18Z"
+    },
+    {
+      "kind": "git",
+      "ref": "liuzq2002/Adguard-Home-For-Magisk-Mod@ce9c57268614ee939fa25426e9912b62eac9cfed",
+      "summary": "Maintained successor source pinned.",
+      "verifiedAt": "2026-09-18T12:05:18Z"
+    },
+    {
+      "kind": "url",
+      "ref": "https://kernelsu.org/zh_CN/guide/module.html",
+      "summary": "Official KernelSU module contract inspected.",
+      "verifiedAt": "2026-09-18T12:05:18Z"
+    },
+    {
+      "kind": "git",
+      "ref": "upstreams/AdGuardHome_magisk@0375eeafc5b42b14933cbc3f496c67ff84d9cd1c",
+      "summary": "audited first upstream at pinned commit",
+      "verifiedAt": "2026-09-18T13:47:05Z"
+    },
+    {
+      "kind": "git",
+      "ref": "upstreams/Adguard-Home-For-Magisk-Mod@ce9c57268614ee939fa25426e9912b62eac9cfed",
+      "summary": "audited maintained upstream at pinned commit",
+      "verifiedAt": "2026-09-18T13:47:05Z"
+    },
+    {
+      "kind": "url",
+      "ref": "https://kernelsu.org/zh_CN/guide/difference-with-magisk.html",
+      "summary": "KernelSU module compatibility differences reviewed",
+      "verifiedAt": "2026-09-18T13:47:05Z"
+    },
+    {
+      "kind": "git",
+      "ref": "auto-git:af1302f593366dfbed4af7935ca6c7d9e398f7ed4335cd3ffc5b904cc2c37775",
+      "summary": "main@763a45ceb76f; 1 changed path",
+      "verifiedAt": "2026-09-18T13:51:42Z"
+    },
+    {
+      "kind": "status",
+      "ref": "auto-graphify:af1302f593366dfbed4af7935ca6c7d9e398f7ed4335cd3ffc5b904cc2c37775",
+      "summary": "Automatic Graphify refresh passed (incremental-code).",
+      "verifiedAt": "2026-09-18T13:51:44Z"
+    },
+    {
+      "kind": "file",
+      "ref": "docs/DESIGN.md",
+      "summary": "A+ design draft written and verified by write_file",
+      "verifiedAt": "2026-09-18T13:55:07Z"
+    },
+    {
+      "kind": "status",
+      "ref": "PROJECT_STATE.json",
+      "summary": "Project state checkpoint records A+ architecture and design progress",
+      "verifiedAt": "2026-09-18T13:55:07Z"
+    }
+  ],
   "change": {
     "previous": null,
-    "latest": null,
-    "lastChangedAt": null
+    "latest": {
+      "fingerprint": "af1302f593366dfbed4af7935ca6c7d9e398f7ed4335cd3ffc5b904cc2c37775",
+      "ref": "main@763a45ceb76f",
+      "summary": "main@763a45ceb76f; 1 changed path",
+      "changedAt": "2026-09-18T11:54:39Z",
+      "observedAt": "2026-09-18T13:51:42Z"
+    },
+    "lastChangedAt": "2026-09-18T11:54:39Z"
   },
   "automation": {
     "graphify": {
-      "status": "idle",
-      "requestedFingerprint": null,
-      "completedFingerprint": null,
-      "requestedAt": null,
-      "startedAt": null,
-      "completedAt": null,
-      "summary": ""
+      "status": "passed",
+      "requestedFingerprint": "af1302f593366dfbed4af7935ca6c7d9e398f7ed4335cd3ffc5b904cc2c37775",
+      "completedFingerprint": "af1302f593366dfbed4af7935ca6c7d9e398f7ed4335cd3ffc5b904cc2c37775",
+      "requestedAt": "2026-09-18T13:51:42Z",
+      "startedAt": "2026-09-18T13:51:42Z",
+      "completedAt": "2026-09-18T13:51:44Z",
+      "summary": "Automatic Graphify refresh passed (incremental-code)."
     }
   },
   "verification": {
-    "status": "not_run",
-    "summary": "",
-    "checkedAt": null
+    "status": "partial",
+    "summary": "Design artifact written; implementation and Android device validation not started",
+    "checkedAt": "2026-09-18T13:55:07Z"
   },
   "checkpoint": {
-    "id": "cp-000000",
-    "sequence": 0,
-    "reason": "project_init",
-    "at": "2026-09-18T11:52:49Z"
+    "id": "cp-000006",
+    "sequence": 6,
+    "reason": "a_plus_design_draft_written",
+    "at": "2026-09-18T13:55:07Z"
   },
   "recovery": {
-    "resumeHint": "Validate PROJECT_STATE.json, then continue from the first safe item in next.",
-    "lastSafeCheckpoint": "cp-000000",
+    "resumeHint": "Load writing-plans, produce plan, then implement the local module skeleton before any public repository action.",
+    "lastSafeCheckpoint": "cp-000006",
     "interrupted": false,
     "interruptionReason": null,
     "requiresRevalidation": false
