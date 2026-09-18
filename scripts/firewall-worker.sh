@@ -26,6 +26,9 @@ firewall_state_write() {
     {
         printf 'state=%s\n' "$firewall_state_value_name"
         printf 'reason=%s\n' "$firewall_reason"
+        printf 'mode=%s\n' "${FW_NETWORK_MODE:-unknown}"
+        printf 'network=%s\n' "${FW_NETWORK_TYPE:-unknown}"
+        printf 'vpn=%s\n' "${FW_NETWORK_VPN:-unknown}"
         printf 'v4_redirect=%s\n' "${FW_V4_REDIRECT:-false}"
         printf 'v6_dns_block=%s\n' "${FW_V6_DNS_BLOCK:-false}"
         printf 'dot_block=%s\n' "${FW_DOT_BLOCK:-false}"
@@ -104,6 +107,20 @@ firewall_insert_jump() {
     fi
 }
 
+firewall_mode_exception() {
+    firewall_mode_target=$1
+    [ -n "$firewall_mode_target" ] || return 0
+    firewall_mode_host=$(printf '%s' "$firewall_mode_target" | sed 's/:.*//')
+    firewall_mode_port=$(printf '%s' "$firewall_mode_target" | sed 's/^[^:]*://')
+    case "$firewall_mode_host" in
+        *[!0-9.]*|'' ) return 1 ;;
+    esac
+    [ "$firewall_mode_port" -ge 1 ] 2>/dev/null || return 1
+    [ "$firewall_mode_port" -le 65535 ] 2>/dev/null || return 1
+    firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p udp --dport 53 -j RETURN || return 1
+    firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p tcp --dport 53 -j RETURN || return 1
+}
+
 firewall_read_core() {
     [ -f "$AGH_STATE_DIR/core.state" ] || return 1
     [ "$(firewall_state_value "$AGH_STATE_DIR/core.state" state)" = ready ] || return 1
@@ -122,6 +139,9 @@ firewall_ensure() {
     FW_V6_DOT_BLOCK=$(firewall_config_value block_ipv6_dot); [ -n "$FW_V6_DOT_BLOCK" ] || FW_V6_DOT_BLOCK=true
     FW_V4_DOQ_BLOCK=$(firewall_config_value block_ipv4_doq); [ -n "$FW_V4_DOQ_BLOCK" ] || FW_V4_DOQ_BLOCK=true
     FW_V6_DOQ_BLOCK=$(firewall_config_value block_ipv6_doq); [ -n "$FW_V6_DOQ_BLOCK" ] || FW_V6_DOQ_BLOCK=true
+    FW_NETWORK_MODE=$(firewall_state_value "$AGH_STATE_DIR/network.state" mode); [ -n "$FW_NETWORK_MODE" ] || FW_NETWORK_MODE=unknown
+    FW_NETWORK_TYPE=$(firewall_state_value "$AGH_STATE_DIR/network.state" network); [ -n "$FW_NETWORK_TYPE" ] || FW_NETWORK_TYPE=unknown
+    FW_NETWORK_VPN=$(firewall_state_value "$AGH_STATE_DIR/network.state" vpn); [ -n "$FW_NETWORK_VPN" ] || FW_NETWORK_VPN=unknown
 
     firewall_remove_jump_all "$firewall_binary_v4" nat "$FW_V4_NAT"
     firewall_remove_jump_all "$firewall_binary_v4" filter "$FW_V4_FILTER"
@@ -131,6 +151,14 @@ firewall_ensure() {
     firewall_ensure_chain "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded v6_filter_chain; return 1; }
 
     if [ "$FW_V4_REDIRECT" = true ]; then
+        FW_LAN_TARGET=$(firewall_config_value lan_dns_target)
+        FW_BOOTSTRAP_TARGET=$(firewall_config_value bootstrap_dns)
+        if [ "$FW_NETWORK_MODE" = 1 ] && [ "$FW_NETWORK_VPN" = false ] && [ -n "$FW_LAN_TARGET" ]; then
+            firewall_mode_exception "$FW_LAN_TARGET" || { firewall_remove; firewall_state_write degraded invalid_lan_target; return 1; }
+        fi
+        if [ "$FW_NETWORK_MODE" = 3 ] && [ "$FW_NETWORK_VPN" = false ] && [ -n "$FW_BOOTSTRAP_TARGET" ]; then
+            firewall_mode_exception "$FW_BOOTSTRAP_TARGET" || { firewall_remove; firewall_state_write degraded invalid_bootstrap_target; return 1; }
+        fi
         firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -p udp --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || { firewall_remove; firewall_state_write degraded v4_redirect; return 1; }
         firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -p tcp --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || { firewall_remove; firewall_state_write degraded v4_redirect; return 1; }
         firewall_insert_jump "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_jump; return 1; }

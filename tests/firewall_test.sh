@@ -34,6 +34,11 @@ IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BI
 after=$(wc -l < "$fixture/iptables.log")
 [ "$after" -gt "$before" ] || fail 'repeat ensure did not verify rules'
 
+sed -i 's/^lan_dns_target=.*/lan_dns_target=192.0.2.53:53/' "$AGH_CONFIG_DIR/mode.conf"
+printf 'state=ready\nmode=1\nnetwork=wifi\nvpn=false\ndns4=192.0.2.1\ndns6=2001:db8::1\n' > "$AGH_STATE_DIR/network.state"
+IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/scripts/firewall-worker.sh" once || fail 'mode exception ensure failed'
+grep -F -- '192.0.2.53' "$fixture/iptables.log" >/dev/null || fail 'mode exception missing'
+
 echo remove > "$AGH_RUN_DIR/firewall/request"
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/scripts/firewall-worker.sh" once || fail 'remove failed'
 grep -F 'state=removed' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'firewall removal state missing'

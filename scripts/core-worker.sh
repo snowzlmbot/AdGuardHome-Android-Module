@@ -7,6 +7,7 @@ export MODDIR
 . "$SCRIPT_DIR/lib/atomic.sh"
 . "$SCRIPT_DIR/lib/config.sh"
 . "$SCRIPT_DIR/lib/platform.sh"
+. "$SCRIPT_DIR/lib/credentials.sh"
 . "$SCRIPT_DIR/lib/process.sh"
 . "$SCRIPT_DIR/lib/log.sh"
 
@@ -55,6 +56,22 @@ core_prepare_runtime_config() {
     CORE_RUNTIME_CONFIG=$core_runtime_config
 }
 
+core_initialize_auth() {
+    [ "${CORE_TEST_MODE:-0}" = 1 ] && return 0
+    grep -q '^users:[[:space:]]*\[\][[:space:]]*$' "$AGH_CONFIG_DIR/AdGuardHome.yaml" || return 0
+    core_username=$(credential_value username)
+    core_password=$(credential_value password)
+    [ -n "$core_username" ] && [ -n "$core_password" ] || return 1
+    core_auth_json=$(printf '{"web":{"ip":"127.0.0.1","port":%s},"dns":{"ip":"127.0.0.1","port":%s},"username":"%s","password":"%s"}' "$PORT_WEB" "$PORT_DNS" "$core_username" "$core_password")
+    if command -v curl >/dev/null 2>&1; then
+        printf '%s' "$core_auth_json" | curl -fsS --max-time 15 -H 'Content-Type: application/json' -X POST --data-binary @- "http://127.0.0.1:$PORT_WEB/control/install/configure" >/dev/null 2>&1
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- --timeout=15 --header='Content-Type: application/json' --post-data="$core_auth_json" "http://127.0.0.1:$PORT_WEB/control/install/configure" >/dev/null 2>&1
+    else
+        return 1
+    fi
+}
+
 core_pid_is_ours() {
     if [ "${CORE_TEST_MODE:-0}" = 1 ]; then
         pid_is_alive "$CORE_PID"
@@ -95,6 +112,11 @@ core_start() {
     if ! core_pid_is_ours || ! core_probe_port "$PORT_WEB" || ! core_probe_port "$PORT_DNS"; then
         core_stop
         core_state_write failed health_probe
+        return 1
+    fi
+    if ! core_initialize_auth; then
+        core_stop
+        core_state_write failed credential_initialization
         return 1
     fi
     CORE_FIREWALL_AUTHORIZED=1

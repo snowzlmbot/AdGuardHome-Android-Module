@@ -48,6 +48,28 @@ network_valid_ip_list() {
     return 0
 }
 
+network_read_android() {
+    network_connectivity=$(dumpsys connectivity 2>/dev/null) || return 1
+    if printf '%s\n' "$network_connectivity" | grep -q 'type: WIFI'; then
+        NETWORK_TYPE=wifi
+    elif printf '%s\n' "$network_connectivity" | grep -q 'type: MOBILE'; then
+        NETWORK_TYPE=mobile
+    elif printf '%s\n' "$network_connectivity" | grep -q 'type: ETHERNET'; then
+        NETWORK_TYPE=ethernet
+    else
+        NETWORK_TYPE=none
+    fi
+    if printf '%s\n' "$network_connectivity" | grep -q 'type: VPN'; then
+        NETWORK_VPN=true
+    else
+        NETWORK_VPN=false
+    fi
+    network_dns_line=$(printf '%s\n' "$network_connectivity" | sed -n 's/.*DnsAddresses: \[\([^]]*\)\].*/\1/p' | sed -n '1p' | tr -d ' ')
+    network_dns_tokens=$(printf '%s\n' "$network_dns_line" | tr ',' '\n')
+    NETWORK_DNS4=$(printf '%s\n' "$network_dns_tokens" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | awk 'BEGIN{first=1}{if(!first)printf ","; printf "%s",$0; first=0}END{if(!first)printf "\n"}')
+    NETWORK_DNS6=$(printf '%s\n' "$network_dns_tokens" | grep ':' | awk 'BEGIN{first=1}{if(!first)printf ","; printf "%s",$0; first=0}END{if(!first)printf "\n"}')
+}
+
 network_read_snapshot() {
     network_snapshot=${NETWORK_SNAPSHOT_FILE:-}
     network_tmp="$AGH_RUN_DIR/network.snapshot.$$"
@@ -55,6 +77,10 @@ network_read_snapshot() {
         cp "$network_snapshot" "$network_tmp" || return 1
     elif [ -n "${NETWORK_DISCOVERY_CMD:-}" ]; then
         sh -c "$NETWORK_DISCOVERY_CMD" > "$network_tmp" 2>/dev/null || return 1
+    elif command -v dumpsys >/dev/null 2>&1; then
+        network_read_android || return 1
+        rm -f "$network_tmp"
+        return 0
     else
         return 1
     fi
