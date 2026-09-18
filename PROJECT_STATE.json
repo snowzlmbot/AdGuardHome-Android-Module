@@ -1,0 +1,62 @@
+{
+  "schema": "zlmaionebot.project-state.v2",
+  "schemaVersion": 2,
+  "project": {
+    "id": "adguard-home-magisk-module",
+    "name": "Adguard Home Magisk Module",
+    "root": ".",
+    "purpose": "Analyze and combine two AdGuard Home Magisk/KernelSU modules with the owner modified version, build an improved module, and publish a credited public GitHub repository."
+  },
+  "revision": 0,
+  "phase": "created",
+  "updatedAt": "2026-09-18T11:52:49Z",
+  "updatedBy": {
+    "runtime": "hermes",
+    "profile": "default",
+    "actor": "ZLMAIonebot"
+  },
+  "goal": "Analyze and combine two AdGuard Home Magisk/KernelSU modules with the owner modified version, build an improved module, and publish a credited public GitHub repository.",
+  "summary": "Project initialized; current work is not yet planned.",
+  "done": [],
+  "inProgress": [],
+  "next": [
+    "Define the first evidence-backed task."
+  ],
+  "blockers": [],
+  "decisions": [],
+  "evidence": [],
+  "change": {
+    "previous": null,
+    "latest": null,
+    "lastChangedAt": null
+  },
+  "automation": {
+    "graphify": {
+      "status": "idle",
+      "requestedFingerprint": null,
+      "completedFingerprint": null,
+      "requestedAt": null,
+      "startedAt": null,
+      "completedAt": null,
+      "summary": ""
+    }
+  },
+  "verification": {
+    "status": "not_run",
+    "summary": "",
+    "checkedAt": null
+  },
+  "checkpoint": {
+    "id": "cp-000000",
+    "sequence": 0,
+    "reason": "project_init",
+    "at": "2026-09-18T11:52:49Z"
+  },
+  "recovery": {
+    "resumeHint": "Validate PROJECT_STATE.json, then continue from the first safe item in next.",
+    "lastSafeCheckpoint": "cp-000000",
+    "interrupted": false,
+    "interruptionReason": null,
+    "requiresRevalidation": false
+  }
+}
