@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-and-fixture-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install BusyBox
+        run: sudo apt-get update && sudo apt-get install -y busybox-static
+      - name: Run fixture tests
+        shell: sh
+        run: |
+          chmod +x tests/*.sh tests/static/check-shell.sh tests/fixtures/iptables-recording-bin/*
+          sh tests/platform_test.sh
+          sh tests/credentials_test.sh
+          sh tests/migration_test.sh
+          sh tests/core_worker_test.sh
+          sh tests/supervisor_test.sh
+          sh tests/network_test.sh
+          sh tests/firewall_test.sh
+          sh tests/proxy_adapter_test.sh
+          sh tests/file_adapter_test.sh
+          sh tests/diagnostics_test.sh
+          sh tests/uninstall_test.sh
+      - name: Download pinned packaging fixtures
+        run: |
+          curl -LfsS --retry 3 --max-time 180 \
+            https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.79/AdGuardHome_linux_arm64.tar.gz \
+            -o /tmp/AdGuardHome_linux_arm64_v0.107.79.tar.gz
+          curl -LfsS --retry 3 --max-time 180 \
+            https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.79/AdGuardHome_linux_armv7.tar.gz \
+            -o /tmp/AdGuardHome_linux_armv7_v0.107.79.tar.gz
+      - name: Run packaging test
+        shell: sh
+        run: sh tests/package_test.sh
+      - name: Run BusyBox ash checks
+        shell: sh
+        run: BUSYBOX_BIN=busybox tests/static/check-shell.sh .
+      - name: Verify diff hygiene
+        run: git diff --check
