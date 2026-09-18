@@ -21,9 +21,16 @@ unzip -o "$ZIPFILE" 'module.prop' 'scripts/*' 'config/*' 'targets/*' 'bin/*' 'LI
 . "$MODPATH/scripts/lib/atomic.sh"
 . "$MODPATH/scripts/lib/platform.sh"
 . "$MODPATH/scripts/lib/credentials.sh"
+. "$MODPATH/scripts/lib/config.sh"
+. "$MODPATH/scripts/migrate.sh"
 
 ensure_dirs || {
     ui_print "! Cannot create persistent data directories"
+    exit 1
+}
+
+migrate_configs || {
+    ui_print "! Configuration migration failed; previous data was kept"
     exit 1
 }
 

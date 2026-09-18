@@ -1,0 +1,2 @@
+redir_port=5592
+PROXY_URL="https://proxy.example/subscription"

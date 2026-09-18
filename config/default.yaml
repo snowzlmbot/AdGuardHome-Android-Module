@@ -1,0 +1,10 @@
+http:
+  address: 127.0.0.1:3000
+users: []
+dns:
+  bind_hosts:
+    - 127.0.0.1
+  port: 5591
+  upstream_dns:
+    - https://dns.example/dns-query
+filters: []

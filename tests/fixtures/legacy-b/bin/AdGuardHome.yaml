@@ -1,0 +1,13 @@
+http:
+  address: 127.0.0.1:3001
+users:
+  - name: admin
+    password: legacy-b
+
+dns:
+  bind_hosts:
+    - 127.0.0.1
+  port: 5592
+  upstream_dns:
+    - https://upstream-b.example/dns-query
+filters: []
