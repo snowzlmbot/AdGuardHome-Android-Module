@@ -1,0 +1,59 @@
+name: Release module
+
+on:
+  workflow_dispatch:
+    inputs:
+      module_version:
+        description: Module version
+        required: true
+        type: string
+      adguardhome_version:
+        description: Fixed AdGuard Home upstream version
+        required: true
+        default: '0.107.79'
+        type: string
+  push:
+    tags:
+      - 'module-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine versions
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "module=${{ inputs.module_version }}" >> "$GITHUB_OUTPUT"
+            echo "agh=${{ inputs.adguardhome_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "module=${GITHUB_REF_NAME#module-v}" >> "$GITHUB_OUTPUT"
+            echo "agh=0.107.79" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check shell scripts
+        run: |
+          chmod +x tests/static/check-shell.sh
+          BUSYBOX_BIN=busybox tests/static/check-shell.sh .
+      - name: Package
+        run: |
+          chmod +x build/package.sh
+          build/package.sh "${{ steps.version.outputs.module }}" "${{ steps.version.outputs.agh }}" dist | tee package-result.txt
+      - name: Verify package checksum
+        run: |
+          package=$(sed -n '1p' package-result.txt)
+          test -f "$package"
+          sha256sum "$package" | tee dist/SHA256SUMS
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: module-v${{ steps.version.outputs.module }}
+          name: AdGuardHome Android Module ${{ steps.version.outputs.module }}
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS
+          generate_release_notes: true

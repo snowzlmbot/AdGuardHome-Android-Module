@@ -1,0 +1,3 @@
+# Generated release checksum file
+
+This source-tree placeholder is intentionally empty of binary claims. `build/package.sh` generates a release-specific `SHA256SUMS` file containing the exact module ZIP and included assets.

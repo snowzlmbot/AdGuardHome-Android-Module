@@ -1,0 +1,25 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "AdGuardHome-Android-Module-source",
+  "documentNamespace": "https://github.com/snowzlmbot/AdGuardHome-Android-Module/spdx/source",
+  "creationInfo": {
+    "created": "2026-09-18T00:00:00Z",
+    "creators": ["Tool: manual-source-manifest"]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-ModuleScripts",
+      "name": "AdGuardHome-Android-Module-scripts",
+      "downloadLocation": "https://github.com/snowzlmbot/AdGuardHome-Android-Module",
+      "licenseConcluded": "MIT"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-AdGuardHome",
+      "name": "AdGuardHome",
+      "downloadLocation": "https://github.com/AdguardTeam/AdGuardHome",
+      "licenseConcluded": "GPL-3.0-only"
+    }
+  ]
+}
