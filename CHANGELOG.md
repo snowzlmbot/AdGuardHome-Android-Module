@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Fixed the service entrypoint to start the supervisor daemon instead of an unsupported command.
+
 ## 0.1.1
 
 - Fixed `SKIPUNZIP=1` installation so all lifecycle entrypoints are installed.

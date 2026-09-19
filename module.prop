@@ -1,7 +1,7 @@
 id=AdGuardHome
 name=AdGuardHome Android Module
-version=0.1.1
-versionCode=2026091801
+version=0.1.2
+versionCode=2026091802
 author=snowzlmbot
 description=[安装后请重启] 支持 KernelSU WebUI；首次启动后可查看运行状态和模式
 minMagisk=20400
