@@ -70,7 +70,9 @@
       </div>
       <div class="stack-actions">
         <button id="openAdmin" class="control start" data-i18n="action.openDashboard">打开管理界面</button>
+        <button id="openQueryLog" class="control" data-i18n="action.queryLog">打开查询日志</button>
         <button id="showCredentials" class="control subtle" data-i18n="action.credentials">查看登录凭据</button>
+        <button id="showLogs" class="control subtle" data-i18n="action.logs">查看最近日志</button>
       </div>
     </section>
 
@@ -98,6 +100,13 @@
     <div class="credential-line"><span data-i18n="credential.username">用户名</span><code id="credentialUser">—</code></div>
     <div class="credential-line"><span data-i18n="credential.password">密码</span><code id="credentialPassword">—</code></div>
     <p class="dialog-note" data-i18n="credential.warning">仅在你主动点击时读取。请勿截图公开。</p>
+  </dialog>
+
+  <dialog id="logDialog" class="log-dialog">
+    <button id="closeLogs" class="dialog-close" aria-label="Close">×</button>
+    <p class="eyebrow" data-i18n="logs.eyebrow">脱敏诊断</p>
+    <h2 data-i18n="logs.title">最近日志</h2>
+    <pre id="logOutput" class="log-output">—</pre>
   </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>

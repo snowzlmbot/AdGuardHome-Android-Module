@@ -11,12 +11,12 @@ const messages = {
     'component.file': '文件', 'component.filter': '规则',
     'hint.autoRefresh': '操作后自动刷新', 'hint.isolation': '故障不会停止 DNS 核心',
     'action.start': '▶ 启动', 'action.pause': 'Ⅱ 暂停', 'action.resume': '↗ 恢复', 'action.restart': '↻ 重启核心',
-    'action.openDashboard': '打开管理界面', 'action.credentials': '查看登录凭据', 'action.refresh': '刷新状态', 'action.close': '关闭',
+    'action.openDashboard': '打开管理界面', 'action.queryLog': '打开查询日志', 'action.credentials': '查看登录凭据', 'action.logs': '查看模块日志', 'action.refresh': '刷新状态', 'action.close': '关闭',
     'mode.unknown': '未知', 'mode.1': '内网兼容', 'mode.1help': '校园网 / 企业域名', 'mode.2': '纯加密', 'mode.3help': '域名上游引导',
     'dashboard.waiting': '等待核心启动…', 'adapter.proxy': '代理配置适配', 'adapter.file': '文件级去广告',
     'adapter.fileWarning': '高风险 · 默认关闭', 'adapter.proxyToggle': '切换代理适配', 'adapter.fileToggle': '切换文件适配',
     'footer.refresh': '状态每 5 秒自动刷新', 'credential.title': '管理登录信息', 'credential.username': '用户名',
-    'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。',
+    'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。', 'logs.eyebrow': '脱敏诊断', 'logs.title': '最近模块日志', 'toast.logs': '日志读取失败',
     'toggle.on': '开启', 'toggle.off': '关闭',
     'overall.running': '运行中', 'overall.paused': '已暂停', 'overall.stopped': '已停止', 'overall.degraded': '部分功能异常', 'overall.failed': '启动失败',
     'summary.running': 'DNS 核心与过滤规则已生效', 'summary.filtersLoading': 'DNS 核心已运行，过滤规则仍在加载', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
@@ -43,12 +43,12 @@ const messages = {
     'component.file': 'FILE', 'component.filter': 'FILTERS',
     'hint.autoRefresh': 'Refreshes after actions', 'hint.isolation': 'Adapter failures do not stop DNS',
     'action.start': '▶ Start', 'action.pause': 'Ⅱ Pause', 'action.resume': '↗ Resume', 'action.restart': '↻ Restart core',
-    'action.openDashboard': 'Open dashboard', 'action.credentials': 'Show credentials', 'action.refresh': 'Refresh status', 'action.close': 'Close',
+    'action.openDashboard': 'Open dashboard', 'action.queryLog': 'Open query log', 'action.credentials': 'Show credentials', 'action.logs': 'View module logs', 'action.refresh': 'Refresh status', 'action.close': 'Close',
     'mode.unknown': 'Unknown', 'mode.1': 'LAN compatible', 'mode.1help': 'Campus / enterprise domains', 'mode.2': 'Encrypted', 'mode.3help': 'Domain upstream bootstrap',
     'dashboard.waiting': 'Waiting for the core…', 'adapter.proxy': 'Proxy configuration adapter', 'adapter.file': 'File-level ad cleanup',
     'adapter.fileWarning': 'HIGH RISK · OFF BY DEFAULT', 'adapter.proxyToggle': 'Toggle proxy adapter', 'adapter.fileToggle': 'Toggle file adapter',
     'footer.refresh': 'Status refreshes every 5 seconds', 'credential.title': 'Dashboard credentials', 'credential.username': 'Username',
-    'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.',
+    'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.', 'logs.eyebrow': 'REDACTED DIAGNOSTICS', 'logs.title': 'Recent module logs', 'toast.logs': 'Failed to read logs',
     'toggle.on': 'ON', 'toggle.off': 'OFF',
     'overall.running': 'Running', 'overall.paused': 'Paused', 'overall.stopped': 'Stopped', 'overall.degraded': 'Partially degraded', 'overall.failed': 'Startup failed',
     'summary.running': 'DNS core and filtering rules are active', 'summary.filtersLoading': 'DNS core is running; filter lists are still loading', 'summary.paused': 'Core is running; DNS redirects are removed',
@@ -214,9 +214,19 @@ async function showCredentials() {
   } catch { showToast(text('toast.credentials')); }
 }
 
-async function openDashboard() {
+async function showLogs() {
+  try {
+    const result = await exec(`sh ${DIAGNOSTICS} logs`);
+    if (result.errno !== 0) throw new Error(result.stderr || 'logs');
+    $('logOutput').textContent = result.stdout.trim() || '—';
+    const dialog = $('logDialog');
+    if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', '');
+  } catch { showToast(text('toast.logs')); }
+}
+
+async function openDashboard(path = '') {
   if (!current.web_url || current.web_url === 'unavailable') return showToast(text('toast.unavailable'));
-  const result = await exec(`am start -a android.intent.action.VIEW -d ${current.web_url}`);
+  const result = await exec(`am start -a android.intent.action.VIEW -d ${current.web_url}${path}`);
   if (result.errno !== 0) showToast(text('toast.unavailable'));
 }
 
@@ -224,9 +234,12 @@ applyLanguage();
 document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => runControl(button.dataset.command)));
 document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
 $('refresh').addEventListener('click', () => refresh(false));
-$('openAdmin').addEventListener('click', openDashboard);
+$('openAdmin').addEventListener('click', () => openDashboard(''));
+$('openQueryLog').addEventListener('click', () => openDashboard('/#logs?response_status=all'));
 $('showCredentials').addEventListener('click', showCredentials);
+$('showLogs').addEventListener('click', showLogs);
 $('closeDialog').addEventListener('click', () => $('credentialDialog').close ? $('credentialDialog').close() : $('credentialDialog').removeAttribute('open'));
+$('closeLogs').addEventListener('click', () => $('logDialog').close ? $('logDialog').close() : $('logDialog').removeAttribute('open'));
 $('proxyToggle').addEventListener('click', () => runControl($('proxyToggle').dataset.enabled === 'true' ? 'disable-proxy' : 'enable-proxy'));
 $('fileToggle').addEventListener('click', () => runControl($('fileToggle').dataset.enabled === 'true' ? 'disable-file' : 'enable-file'));
 

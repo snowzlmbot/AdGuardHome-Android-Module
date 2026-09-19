@@ -126,10 +126,12 @@ core_apply_selected_mode() {
 
 core_start_process() {
     core_log="$AGH_LOG_DIR/core-process.log"
+    log_rotate_file "$core_log"
+    log_section core-process "start initial_setup=${CORE_INITIAL_SETUP:-0} web_port=${PORT_WEB:-unknown} dns_port=${PORT_DNS:-unknown}"
     if [ "${CORE_INITIAL_SETUP:-0}" = 1 ]; then
-        "$CORE_BINARY" --config "$AGH_CONFIG_DIR/AdGuardHome.yaml" --work-dir "$AGH_DATA_DIR" --web-addr "127.0.0.1:$PORT_WEB" --no-check-update >"$core_log" 2>&1 &
+        "$CORE_BINARY" --config "$AGH_CONFIG_DIR/AdGuardHome.yaml" --work-dir "$AGH_DATA_DIR" --web-addr "127.0.0.1:$PORT_WEB" --no-check-update >>"$core_log" 2>&1 &
     else
-        "$CORE_BINARY" --config "$CORE_RUNTIME_CONFIG" --work-dir "$AGH_DATA_DIR" --no-check-update >"$core_log" 2>&1 &
+        "$CORE_BINARY" --config "$CORE_RUNTIME_CONFIG" --work-dir "$AGH_DATA_DIR" --no-check-update >>"$core_log" 2>&1 &
     fi
     CORE_PID=$!
     printf '%s\n' "$CORE_PID" > "$AGH_RUN_DIR/core.pid"

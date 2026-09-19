@@ -28,6 +28,12 @@ $output
 EOF
 printf '%s\n' "$output" | grep -F 'super-secret' >/dev/null && fail 'diagnostics leaked password' || true
 printf '%s\n' "$output" | grep -F 'private-device' >/dev/null && fail 'diagnostics leaked serial' || true
+
+printf '2026-01-01 [core] password=super-secret token=abc123 safe-message\n' > "$AGH_LOG_DIR/events.log"
+log_output=$(sh "$ROOT/scripts/diagnostics/diagnostics.sh" logs)
+printf '%s\n' "$log_output" | grep -F 'safe-message' >/dev/null || fail 'diagnostic logs missing content'
+printf '%s\n' "$log_output" | grep -F 'super-secret' >/dev/null && fail 'diagnostic logs leaked password' || true
+printf '%s\n' "$log_output" | grep -F 'abc123' >/dev/null && fail 'diagnostic logs leaked token' || true
 printf '%s\n' "$output" | grep -F '35001' >/dev/null || fail 'diagnostics omitted web port'
 
 printf '%s\n' 'diagnostics tests passed'

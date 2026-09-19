@@ -111,6 +111,8 @@ dialog::backdrop { background: rgba(2, 8, 6, .82); backdrop-filter: blur(7px); }
 .credential-line span { color: var(--muted); font-size: 12px; }
 .credential-line code { padding: 10px; overflow-x: auto; border-radius: 10px; color: var(--acid); background: #07100d; font-family: "JetBrains Mono", "Noto Sans Mono", monospace; }
 .dialog-note { margin: 16px 0 0; color: var(--danger); font-size: 11px; }
+.log-dialog { width: min(92vw, 760px); }
+.log-output { max-height: 62vh; margin: 14px 0 0; padding: 14px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; color: #c8f4d8; background: #020806; font: 500 10px/1.55 "JetBrains Mono", "Noto Sans Mono", monospace; white-space: pre-wrap; word-break: break-word; }
 #toast { position: fixed; z-index: 30; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; min-width: 180px; max-width: calc(100% - 36px); padding: 12px 17px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: #173326; box-shadow: var(--shadow); text-align: center; font-size: 12px; transition: .2s ease; pointer-events: none; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 button[disabled] { opacity: .45; cursor: wait; }

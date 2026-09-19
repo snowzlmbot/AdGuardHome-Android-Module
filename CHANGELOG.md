@@ -8,6 +8,7 @@
 - Added filter-list readiness/count/size to WebUI.
 - Added effective upstream profiles for LAN-compatible, encrypted DoH, and Bootstrap modes with validated safe restarts.
 - Replaced unreachable Quad9 defaults found in device logs while preserving user-customized upstreams.
+- Append and rotate component/core logs instead of overwriting them; add a redacted recent-log viewer and direct query-log shortcut to KernelSU WebUI.
 
 ## 0.1.5
 

@@ -17,6 +17,10 @@ grep -F 'scripts/diagnostics/diagnostics.sh' "$ROOT/webroot/app.js" >/dev/null |
 grep -F 'data-command="start"' "$ROOT/webroot/index.html" >/dev/null || fail 'start control missing'
 grep -F 'data-command="pause"' "$ROOT/webroot/index.html" >/dev/null || fail 'pause control missing'
 grep -F 'id="openAdmin"' "$ROOT/webroot/index.html" >/dev/null || fail 'AdGuard Home dashboard control missing'
+grep -F 'id="openQueryLog"' "$ROOT/webroot/index.html" >/dev/null || fail 'query log control missing'
+grep -F 'id="showLogs"' "$ROOT/webroot/index.html" >/dev/null || fail 'module log control missing'
+grep -F '/#logs?response_status=all' "$ROOT/webroot/app.js" >/dev/null || fail 'query log route missing'
+grep -F 'DIAGNOSTICS} logs' "$ROOT/webroot/app.js" >/dev/null || fail 'module log command missing'
 if grep -RE '<(script|link)[^>]+(src|href)="https?://' "$ROOT/webroot" 2>/dev/null | grep -v '/internal/insets.css' >/dev/null; then
     fail 'external WebUI resource found'
 fi

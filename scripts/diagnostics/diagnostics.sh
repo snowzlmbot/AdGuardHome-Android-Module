@@ -15,6 +15,27 @@ state_value() {
     sed -n "s/^${diagnostics_key}=//p" "$diagnostics_file" 2>/dev/null | sed -n '1p'
 }
 
+diagnostics_redact() {
+    sed -E \
+        -e 's/(password|passwd|token|authorization|cookie|secret)([=:[:space:]]+)[^[:space:]]+/\1\2[REDACTED]/Ig' \
+        -e 's#(https?://)[^/@[:space:]]+:[^/@[:space:]]+@#\1[REDACTED]@#g'
+}
+
+diagnostics_logs() {
+    diagnostics_lines=${DIAGNOSTICS_LOG_LINES:-80}
+    for diagnostics_log in core-process.log events.log supervisor.log network-worker.log firewall-worker.log proxy-worker.log file-worker.log; do
+        diagnostics_path="$AGH_LOG_DIR/$diagnostics_log"
+        [ -f "$diagnostics_path" ] || continue
+        printf '\n===== %s =====\n' "$diagnostics_log"
+        tail -n "$diagnostics_lines" "$diagnostics_path" 2>/dev/null | diagnostics_redact
+    done
+}
+
+if [ "${1:-status}" = logs ]; then
+    diagnostics_logs
+    exit 0
+fi
+
 detect_arch >/dev/null 2>&1 || AGH_ARCH=unsupported
 module_detect_language || MODULE_LANG=en
 diagnostics_core="$AGH_STATE_DIR/core.state"

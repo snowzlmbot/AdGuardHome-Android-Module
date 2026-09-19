@@ -49,7 +49,9 @@ supervisor_run_worker() {
         esac
     fi
     [ -x "$supervisor_worker" ] || return 0
-    "$supervisor_worker" once >"$AGH_LOG_DIR/$supervisor_name-worker.log" 2>&1
+    supervisor_worker_log="$AGH_LOG_DIR/$supervisor_name-worker.log"
+    log_rotate_file "$supervisor_worker_log"
+    "$supervisor_worker" once >>"$supervisor_worker_log" 2>&1
     supervisor_rc=$?
     if [ "$supervisor_rc" -ne 0 ]; then
         log_message supervisor "$supervisor_name worker exited with status $supervisor_rc"
