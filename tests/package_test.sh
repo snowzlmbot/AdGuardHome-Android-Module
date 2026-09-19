@@ -9,7 +9,7 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 mkdir -p "$fixture/out"
 (
     cd "$fixture"
-    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.2 0.107.79 out > "$fixture/result"
+    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.3 0.107.79 out > "$fixture/result"
 )
 package=$(sed -n '1p' "$fixture/result")
 [ -f "$package" ] || fail 'package was not created'
