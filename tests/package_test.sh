@@ -62,6 +62,7 @@ grep -F 'mode=2' "$data_root/config/mode.conf" >/dev/null || fail 'installation 
 grep -F 'redirect_ipv6_dns=true' "$data_root/config/mode.conf" >/dev/null || fail 'IPv6 option missing'
 grep -F 'enabled=false' "$data_root/config/proxy-adapter.conf" >/dev/null || fail 'proxy option missing'
 cp "$data_root/state/ports.conf" "$fixture/ports.before"
+rm -f "$data_root/state/install-options.done"
 INSTALL_DNS_MODE=3 sh "$fixture/run-installer.sh" || fail 'reinstall simulation failed'
 cmp -s "$fixture/ports.before" "$data_root/state/ports.conf" || fail 'ports changed after reinstall'
 grep -F 'mode=2' "$data_root/config/mode.conf" >/dev/null || fail 'saved install choices changed on reinstall'

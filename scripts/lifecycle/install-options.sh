@@ -60,6 +60,19 @@ install_select_mode() {
 configure_install_options() {
     install_marker="$AGH_STATE_DIR/install-options.done"
     [ -f "$install_marker" ] && return 0
+    if [ -f "$AGH_STATE_DIR/ports.conf" ] && [ -f "$AGH_CONFIG_DIR/mode.conf" ]; then
+        install_existing_mode=$(sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" | sed -n '1p')
+        install_existing_ipv6=$(sed -n 's/^redirect_ipv6_dns=//p' "$AGH_CONFIG_DIR/mode.conf" | sed -n '1p')
+        install_existing_853=$(sed -n 's/^block_ipv4_dot=//p' "$AGH_CONFIG_DIR/mode.conf" | sed -n '1p')
+        [ -n "$install_existing_mode" ] || return 1
+        [ -n "$install_existing_ipv6" ] || install_existing_ipv6=true
+        [ -n "$install_existing_853" ] || install_existing_853=true
+        install_set_value "$AGH_CONFIG_DIR/proxy-adapter.conf" enabled "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" 2>/dev/null || true
+        printf 'mode=%s\nipv6=%s\nblock_853=%s\nproxy=%s\nfile_adapter=%s\n' "$install_existing_mode" "$install_existing_ipv6" "$install_existing_853" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null | sed -n '1p')" > "$install_marker"
+        chmod 0600 "$install_marker"
+        ui_print "- 检测到已有安装，保留原有模式和功能开关"
+        return 0
+    fi
     install_select_mode || return 1
 
     if [ -n "${INSTALL_ENABLE_IPV6:-}" ]; then

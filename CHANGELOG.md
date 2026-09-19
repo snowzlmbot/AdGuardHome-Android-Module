@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Preserve existing mode, feature toggles, ports, and credentials when upgrading older data without an install-options marker.
+
 ## 0.1.2
 
 - Fixed the service entrypoint to start the supervisor daemon instead of an unsupported command.
