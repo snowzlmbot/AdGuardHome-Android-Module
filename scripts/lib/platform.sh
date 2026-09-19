@@ -105,7 +105,7 @@ load_or_allocate_ports() {
     mkdir -p "${ports_file%/*}" || return 1
     existing_web=$(sed -n 's/^web_port=//p' "$ports_file" 2>/dev/null | sed -n '1p')
     existing_dns=$(sed -n 's/^dns_port=//p' "$ports_file" 2>/dev/null | sed -n '1p')
-    if valid_port "$existing_web" && valid_port "$existing_dns" && [ "$existing_web" != "$existing_dns" ] && port_is_free "$existing_web" && port_is_free "$existing_dns"; then
+    if valid_port "$existing_web" && valid_port "$existing_dns" && [ "$existing_web" != "$existing_dns" ]; then
         PORT_WEB=$existing_web
         PORT_DNS=$existing_dns
     else

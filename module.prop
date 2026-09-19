@@ -1,7 +1,8 @@
 id=AdGuardHome
 name=AdGuardHome Android Module
-version=0.1.0
-versionCode=2026091800
+version=0.1.1
+versionCode=2026091801
 author=snowzlmbot
-description=Modular AdGuard Home DNS filtering for Magisk and KernelSU; optional adapters are disabled by default.
+description=[安装后请重启] 支持 KernelSU WebUI；首次启动后可查看运行状态和模式
 minMagisk=20400
+updateJson=https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/Update.json

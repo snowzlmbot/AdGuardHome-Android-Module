@@ -24,8 +24,15 @@ export LEGACY_MODULES_DIR="$fixture_root/modules"
 mkdir -p "$LEGACY_MODULES_DIR"
 
 migrate_configs || fail 'first install did not create defaults'
+install_runtime_defaults || fail 'runtime defaults were not installed'
 [ -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ] || fail 'default YAML missing'
 [ -f "$AGH_CONFIG_DIR/mode.conf" ] || fail 'default mode missing'
+[ -f "$AGH_CONFIG_DIR/proxy-adapter.conf" ] || fail 'proxy adapter config missing'
+[ -f "$AGH_CONFIG_DIR/file-adapter.conf" ] || fail 'file adapter config missing'
+assert_file_contains "$AGH_CONFIG_DIR/mode.conf" 'redirect_ipv6_dns=true' 'extended mode defaults missing'
+sed -i 's/^enabled=false/enabled=true/' "$AGH_CONFIG_DIR/proxy-adapter.conf"
+install_runtime_defaults || fail 'runtime defaults were not idempotent'
+assert_file_contains "$AGH_CONFIG_DIR/proxy-adapter.conf" 'enabled=true' 'existing adapter choice was overwritten'
 
 rm -rf "$AGH_ROOT"
 mkdir -p "$LEGACY_MODULES_DIR/AdGuardHome/data/filters"

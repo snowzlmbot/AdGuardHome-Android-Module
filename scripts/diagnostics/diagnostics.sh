@@ -20,6 +20,36 @@ diagnostics_firewall="$AGH_STATE_DIR/firewall.state"
 diagnostics_network="$AGH_STATE_DIR/network.state"
 diagnostics_proxy="$AGH_STATE_DIR/proxy.state"
 diagnostics_file="$AGH_STATE_DIR/file.state"
+diagnostics_mode=$(sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p')
+case "$diagnostics_mode" in
+    1) diagnostics_mode_name='内网兼容' ;;
+    2) diagnostics_mode_name='纯加密上游' ;;
+    3) diagnostics_mode_name='Bootstrap' ;;
+    *) diagnostics_mode_name='未知' ;;
+esac
+diagnostics_core_state=$(state_value "$diagnostics_core" state || printf unknown)
+diagnostics_firewall_state=$(state_value "$diagnostics_firewall" state || printf unknown)
+if [ -f "$AGH_STATE_DIR/paused" ]; then
+    diagnostics_status=paused
+elif [ -f "$AGH_STATE_DIR/core.disabled" ]; then
+    diagnostics_status=stopped
+elif [ "$diagnostics_core_state" = ready ] && [ "$diagnostics_firewall_state" = ready ]; then
+    diagnostics_status=running
+elif [ "$diagnostics_core_state" = ready ]; then
+    diagnostics_status=degraded
+else
+    diagnostics_status=failed
+fi
+diagnostics_web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" 2>/dev/null | sed -n '1p')
+
+printf 'status=%s\n' "$diagnostics_status"
+printf 'mode=%s\n' "$diagnostics_mode"
+printf 'mode_name=%s\n' "$diagnostics_mode_name"
+printf 'paused=%s\n' "$( [ -f "$AGH_STATE_DIR/paused" ] && printf true || printf false )"
+printf 'proxy_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null && printf true || printf false )"
+printf 'file_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null && printf true || printf false )"
+printf 'web_url=%s\n' "$( [ -n "$diagnostics_web_port" ] && printf 'http://127.0.0.1:%s' "$diagnostics_web_port" || printf unavailable )"
+printf 'username=admin\n'
 
 printf 'arch=%s\n' "$AGH_ARCH"
 printf 'core=%s\n' "$(state_value "$diagnostics_core" state || printf unknown)"

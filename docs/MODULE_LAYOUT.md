@@ -14,6 +14,7 @@ uninstall.sh
 scripts/
 config/
 targets/
+webroot/       # KernelSU WebUI（必须包含 index.html）
 licenses/
 sbom/
 ```

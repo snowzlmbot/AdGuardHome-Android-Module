@@ -1,5 +1,27 @@
 #!/system/bin/sh
 
+install_runtime_defaults() {
+    config_module_root=${MODDIR:-.}
+    mkdir -p "$AGH_CONFIG_DIR" || return 1
+    for config_name in proxy-adapter.conf file-adapter.conf; do
+        if [ ! -f "$AGH_CONFIG_DIR/$config_name" ]; then
+            atomic_copy "$config_module_root/config/$config_name" "$AGH_CONFIG_DIR/$config_name" || return 1
+        fi
+        chmod 0600 "$AGH_CONFIG_DIR/$config_name"
+    done
+    if [ ! -f "$AGH_CONFIG_DIR/mode.conf" ]; then
+        atomic_copy "$config_module_root/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf" || return 1
+    fi
+    for config_key in mode I_network Lock_sleep port_testing redirect_ipv4_dns redirect_ipv6_dns block_ipv4_dot block_ipv6_dot block_ipv4_doq block_ipv6_doq lan_dns_target bootstrap_dns; do
+        if ! grep -q "^${config_key}=" "$AGH_CONFIG_DIR/mode.conf"; then
+            config_default_line=$(sed -n "/^${config_key}=/p" "$config_module_root/config/mode.conf" | sed -n '1p')
+            [ -n "$config_default_line" ] || return 1
+            printf '%s\n' "$config_default_line" >> "$AGH_CONFIG_DIR/mode.conf" || return 1
+        fi
+    done
+    chmod 0600 "$AGH_CONFIG_DIR/mode.conf"
+}
+
 config_value() {
     config_file=$1
     config_key=$2

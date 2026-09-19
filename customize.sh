@@ -12,7 +12,7 @@ fi
 
 ui_print "- AdGuardHome Android Module"
 ui_print "- Extracting module files"
-unzip -o "$ZIPFILE" 'module.prop' 'scripts/*' 'config/*' 'targets/*' 'bin/*' 'LICENSE*' 'CREDITS.md' 'THIRD_PARTY_NOTICES.md' -d "$MODPATH" >/dev/null 2>&1 || {
+unzip -o "$ZIPFILE" 'module.prop' 'customize.sh' 'service.sh' 'action.sh' 'boot-completed.sh' 'uninstall.sh' 'scripts/*' 'config/*' 'targets/*' 'webroot/*' 'bin/*' 'LICENSE*' 'CREDITS.md' 'THIRD_PARTY_NOTICES.md' -d "$MODPATH" >/dev/null 2>&1 || {
     ui_print "! Module extraction failed"
     exit 1
 }
@@ -23,6 +23,7 @@ unzip -o "$ZIPFILE" 'module.prop' 'scripts/*' 'config/*' 'targets/*' 'bin/*' 'LI
 . "$MODPATH/scripts/lib/credentials.sh"
 . "$MODPATH/scripts/lib/config.sh"
 . "$MODPATH/scripts/lifecycle/migrate.sh"
+. "$MODPATH/scripts/lifecycle/install-options.sh"
 
 ensure_dirs || {
     ui_print "! Cannot create persistent data directories"
@@ -31,6 +32,16 @@ ensure_dirs || {
 
 migrate_configs || {
     ui_print "! Configuration migration failed; previous data was kept"
+    exit 1
+}
+
+install_runtime_defaults || {
+    ui_print "! Runtime configuration initialization failed"
+    exit 1
+}
+
+configure_install_options || {
+    ui_print "! Installation option configuration failed"
     exit 1
 }
 

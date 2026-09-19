@@ -32,6 +32,7 @@ export CORE_TEST_MODE=1
 
 sh "$ROOT/scripts/core/core-worker.sh" once || fail 'core did not start'
 grep -F -- '--config ' "$FAKE_CORE_ARGS" >/dev/null || fail 'config argument missing'
+grep -F -- "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$FAKE_CORE_ARGS" >/dev/null || fail 'persistent config path not used'
 grep -F -- '--work-dir ' "$FAKE_CORE_ARGS" >/dev/null || fail 'work-dir argument missing'
 grep -F -- '--no-check-update' "$FAKE_CORE_ARGS" >/dev/null || fail 'no-check-update argument missing'
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'core not ready'

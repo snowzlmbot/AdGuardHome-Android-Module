@@ -14,6 +14,8 @@ export AGH_LOG_DIR="$AGH_ROOT/logs"
 export AGH_DATA_DIR="$AGH_ROOT/data"
 export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$fixture/cache"
+if grep -v '^[[:space:]]*#' "$ROOT/targets/file-ad-targets.conf" | grep -E '/data/system/ifw|/databases/|/shared_prefs/' >/dev/null; then fail 'unsafe bundled target found'; fi
+if grep -v '^[[:space:]]*#' "$ROOT/targets/file-ad-targets.conf" | awk -F'|' '$2 ~ /\/files$/ { found=1 } END { exit found ? 0 : 1 }'; then fail 'application files root bundled'; fi
 printf 'ad-image\n' > "$fixture/ad.txt"
 printf 'keep-image\n' > "$fixture/cache/keep.txt"
 printf 'safe-file|%s|file|low|if-unchanged\nsafe-dir|%s|directory|medium|if-unchanged\nbad-ifw|/data/system/ifw|directory|high|if-unchanged\n' "$fixture/ad.txt" "$fixture/cache" > "$fixture/targets.conf"

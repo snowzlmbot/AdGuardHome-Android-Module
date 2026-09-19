@@ -48,12 +48,14 @@ core_probe_port() {
 }
 
 core_prepare_runtime_config() {
-    core_runtime_config="$AGH_RUN_DIR/runtime.yaml"
-    mkdir -p "$AGH_RUN_DIR"
-    cp "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$core_runtime_config" || return 1
-    sed -i "/^http:/,/^[^[:space:]]/ s#^[[:space:]]*address: 127.0.0.1:[0-9][0-9]*#  address: 127.0.0.1:$PORT_WEB#" "$core_runtime_config" || return 1
-    sed -i "/^dns:/,/^[^[:space:]]/ s#^[[:space:]]*port: [0-9][0-9]*#  port: $PORT_DNS#" "$core_runtime_config" || return 1
-    chmod 0600 "$core_runtime_config"
+    core_runtime_config="$AGH_CONFIG_DIR/AdGuardHome.yaml"
+    core_config_tmp="$AGH_CONFIG_DIR/.AdGuardHome.yaml.$$"
+    cp "$core_runtime_config" "$core_config_tmp" || return 1
+    sed -i "/^http:/,/^[^[:space:]]/ s#^[[:space:]]*address: 127.0.0.1:[0-9][0-9]*#  address: 127.0.0.1:$PORT_WEB#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
+    sed -i "/^dns:/,/^[^[:space:]]/ s#^[[:space:]]*port: [0-9][0-9]*#  port: $PORT_DNS#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
+    chmod 0600 "$core_config_tmp"
+    sync
+    mv -f "$core_config_tmp" "$core_runtime_config" || return 1
     CORE_RUNTIME_CONFIG=$core_runtime_config
 }
 

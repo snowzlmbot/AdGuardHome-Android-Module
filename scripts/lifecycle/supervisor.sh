@@ -84,6 +84,36 @@ supervisor_consume_control() {
     fi
 }
 
+supervisor_update_module_description() {
+    supervisor_mode=$(supervisor_state_value "$AGH_STATE_DIR/network.state" mode || sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p')
+    case "$supervisor_mode" in
+        1) supervisor_mode_name='内网兼容' ;;
+        2) supervisor_mode_name='纯加密上游' ;;
+        3) supervisor_mode_name='Bootstrap' ;;
+        *) supervisor_mode_name='未知模式' ;;
+    esac
+    supervisor_core=$(supervisor_state_value "$AGH_STATE_DIR/core.state" state || printf 'unknown')
+    supervisor_firewall=$(supervisor_state_value "$AGH_STATE_DIR/firewall.state" state || printf 'unknown')
+    if [ -f "$AGH_STATE_DIR/paused" ]; then
+        supervisor_status_name='已暂停'
+    elif [ -f "$AGH_STATE_DIR/core.disabled" ]; then
+        supervisor_status_name='已停止'
+    elif [ "$supervisor_core" = ready ] && [ "$supervisor_firewall" = ready ]; then
+        supervisor_status_name='运行中'
+    elif [ "$supervisor_core" = ready ]; then
+        supervisor_status_name='核心运行，过滤未生效'
+    else
+        supervisor_status_name='异常'
+    fi
+    supervisor_description="[$supervisor_status_name | $supervisor_mode_name] AdGuard Home DNS filtering for Magisk and KernelSU"
+    supervisor_module_prop=${MODULE_PROP_FILE:-$MODDIR/module.prop}
+    if [ -f "$supervisor_module_prop" ]; then
+        supervisor_tmp_prop="${supervisor_module_prop%/*}/.module.prop.$$"
+        sed "s#^description=.*#description=$supervisor_description#" "$supervisor_module_prop" > "$supervisor_tmp_prop" && mv -f "$supervisor_tmp_prop" "$supervisor_module_prop"
+        chmod 0644 "$supervisor_module_prop" 2>/dev/null || true
+    fi
+}
+
 supervisor_aggregate() {
     supervisor_tmp="$AGH_STATE_DIR/.overall.state.$$"
     {
@@ -92,10 +122,12 @@ supervisor_aggregate() {
         printf 'network=%s\n' "$(supervisor_state_value "$AGH_STATE_DIR/network.state" state || printf 'unknown')"
         printf 'proxy=%s\n' "$(supervisor_state_value "$AGH_STATE_DIR/proxy.state" state || printf 'disabled')"
         printf 'file_adapter=%s\n' "$(supervisor_state_value "$AGH_STATE_DIR/file.state" state || printf 'disabled')"
+        printf 'paused=%s\n' "$( [ -f "$AGH_STATE_DIR/paused" ] && printf true || printf false )"
     } > "$supervisor_tmp"
     sync
     mv -f "$supervisor_tmp" "$AGH_STATE_DIR/overall.state"
     chmod 0600 "$AGH_STATE_DIR/overall.state"
+    supervisor_update_module_description
 }
 
 supervisor_once() {
@@ -104,22 +136,42 @@ supervisor_once() {
     supervisor_run_worker core || true
     supervisor_core_state=$(supervisor_state_value "$AGH_STATE_DIR/core.state" state || printf 'unknown')
     supervisor_core_authorized=$(supervisor_state_value "$AGH_STATE_DIR/core.state" firewall_authorized || printf '0')
-    if [ "$supervisor_core_state" = ready ] && [ "$supervisor_core_authorized" = 1 ]; then
+    if [ -f "$AGH_STATE_DIR/paused" ]; then
+        supervisor_request firewall remove
+        supervisor_run_worker firewall || true
+    elif [ "$supervisor_core_state" = ready ] && [ "$supervisor_core_authorized" = 1 ]; then
         supervisor_run_worker network || true
         supervisor_run_worker firewall || true
     else
         supervisor_request firewall remove
+        supervisor_run_worker firewall || true
     fi
-    if supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf"; then
+    if [ ! -f "$AGH_STATE_DIR/paused" ] && supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf"; then
         supervisor_run_worker proxy || true
     fi
-    if supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf"; then
+    if [ ! -f "$AGH_STATE_DIR/paused" ] && supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf"; then
         supervisor_run_worker file || true
     fi
     supervisor_aggregate
 }
 
+supervisor_daemon_cleanup() {
+    supervisor_pid_file="$AGH_RUN_DIR/supervisor.pid"
+    if [ -f "$supervisor_pid_file" ] && [ "$(sed -n '1p' "$supervisor_pid_file")" = "$$" ]; then
+        rm -f "$supervisor_pid_file"
+    fi
+}
+
 supervisor_daemon() {
+    ensure_dirs || return 1
+    supervisor_pid_file="$AGH_RUN_DIR/supervisor.pid"
+    supervisor_old_pid=$(sed -n '1p' "$supervisor_pid_file" 2>/dev/null || true)
+    if pid_is_alive "$supervisor_old_pid"; then
+        return 0
+    fi
+    rm -f "$AGH_RUN_DIR/stop"
+    atomic_write "$supervisor_pid_file" "$$" || return 1
+    trap supervisor_daemon_cleanup EXIT INT TERM
     while [ ! -f "$AGH_RUN_DIR/stop" ]; do
         supervisor_once || log_message supervisor 'supervisor cycle failed'
         sleep 5

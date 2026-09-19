@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08120f">
+  <title>AdGuard Home 控制台</title>
+  <link rel="stylesheet" href="/internal/insets.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">ADGUARD HOME · ANDROID ROOT MODULE</p>
+        <h1>本地 DNS<br><span>控制台</span></h1>
+      </div>
+      <button id="refresh" class="icon-button" aria-label="刷新状态">↻</button>
+    </header>
+
+    <section class="hero panel">
+      <div class="signal" id="signal"></div>
+      <div class="hero-copy">
+        <p class="label">当前状态</p>
+        <strong id="overall">正在读取…</strong>
+        <span id="statusReason">等待 KernelSU 返回状态</span>
+      </div>
+      <div class="mode-stamp">
+        <span>MODE</span>
+        <b id="modeNumber">—</b>
+        <small id="modeName">未知</small>
+      </div>
+    </section>
+
+    <section class="component-grid" aria-label="组件状态">
+      <article class="metric"><span>CORE</span><b id="core">—</b></article>
+      <article class="metric"><span>FIREWALL</span><b id="firewall">—</b></article>
+      <article class="metric"><span>NETWORK</span><b id="network">—</b></article>
+      <article class="metric"><span>PROXY</span><b id="proxy">—</b></article>
+      <article class="metric"><span>FILE</span><b id="file_adapter">—</b></article>
+      <article class="metric"><span>WEB</span><b id="webPort">—</b></article>
+    </section>
+
+    <section class="panel controls">
+      <div class="section-heading">
+        <div><p class="label">运行控制</p><h2>过滤引擎</h2></div>
+        <span class="hint">操作后自动刷新</span>
+      </div>
+      <div class="primary-actions">
+        <button data-command="start" class="control start">▶ 启动</button>
+        <button data-command="pause" class="control pause">Ⅱ 暂停</button>
+        <button data-command="resume" class="control">↗ 恢复</button>
+        <button data-command="restart-core" class="control subtle">↻ 重启核心</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div><p class="label">DNS 路由</p><h2>工作模式</h2></div>
+      </div>
+      <div class="mode-picker" role="group" aria-label="DNS 模式">
+        <button data-mode="1"><b>01</b><span>内网兼容</span><small>校园网 / 企业域名</small></button>
+        <button data-mode="2"><b>02</b><span>纯加密</span><small>DoH / DoT / DoQ</small></button>
+        <button data-mode="3"><b>03</b><span>Bootstrap</span><small>域名上游引导</small></button>
+      </div>
+    </section>
+
+    <section class="panel split-panel">
+      <div>
+        <p class="label">管理入口</p>
+        <h2>AdGuard Home</h2>
+        <p id="webUrl" class="mono">等待端口…</p>
+      </div>
+      <div class="stack-actions">
+        <button id="openAdmin" class="control start">打开管理界面</button>
+        <button id="showCredentials" class="control subtle">查看登录凭据</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div><p class="label">可选功能</p><h2>独立适配器</h2></div>
+        <span class="hint">故障不会停止 DNS 核心</span>
+      </div>
+      <div class="adapter-row">
+        <div><b>代理配置适配</b><small>Box / Clash / Mihomo</small></div>
+        <button id="proxyToggle" class="toggle" aria-label="切换代理适配">关闭</button>
+      </div>
+      <div class="adapter-row">
+        <div><b>文件级去广告</b><small class="danger-text">高风险 · 默认关闭</small></div>
+        <button id="fileToggle" class="toggle danger" aria-label="切换文件适配">关闭</button>
+      </div>
+    </section>
+
+    <footer>
+      <span>状态每 5 秒自动刷新</span>
+      <a href="https://github.com/snowzlmbot/AdGuardHome-Android-Module">GitHub</a>
+    </footer>
+  </main>
+
+  <dialog id="credentialDialog">
+    <button id="closeDialog" class="dialog-close" aria-label="关闭">×</button>
+    <p class="eyebrow">ROOT-ONLY CREDENTIAL</p>
+    <h2>管理登录信息</h2>
+    <div class="credential-line"><span>用户名</span><code id="credentialUser">—</code></div>
+    <div class="credential-line"><span>密码</span><code id="credentialPassword">—</code></div>
+    <p class="dialog-note">仅在你主动点击时读取。请勿截图公开。</p>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -2,6 +2,10 @@
 
 A modular AdGuard Home integration for rooted Android devices using Magisk or KernelSU.
 
+> Version 0.1.0 did not install the lifecycle entrypoints when `SKIPUNZIP=1` was used. Upgrade or reinstall 0.1.1; existing generated ports and credentials are preserved.
+
+KernelSU users get a local `webroot/` WebUI with live component status, current DNS mode, start/pause/resume/restart controls, adapter toggles, and access to the local AdGuard Home dashboard. Magisk's action button displays the generated login credential before opening the dashboard.
+
 The project uses isolated workers for the core, network discovery, firewall, proxy integration, file-level cleanup, and diagnostics. Optional adapters are disabled by default. Runtime remote shell updates and broad process-name kills are intentionally not used.
 
 ## Scope

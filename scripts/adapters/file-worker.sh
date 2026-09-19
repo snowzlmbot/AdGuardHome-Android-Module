@@ -48,6 +48,16 @@ file_backup_target() {
     file_target_path=$1
     file_target_type=$2
     file_manifest_path "$file_target_path"
+    file_max_backup=$(file_config_value max_backup_bytes)
+    case "$file_max_backup" in ''|*[!0-9]*) return 1 ;; esac
+    if [ "$file_target_type" = directory ]; then
+        file_backup_size_kb=$(du -sk "$file_target_path" 2>/dev/null | awk '{print $1}')
+        case "$file_backup_size_kb" in ''|*[!0-9]*) return 1 ;; esac
+        file_backup_size=$((file_backup_size_kb * 1024))
+    else
+        file_backup_size=$(wc -c < "$file_target_path" 2>/dev/null) || return 1
+    fi
+    [ "$file_backup_size" -le "$file_max_backup" ] || return 1
     mkdir -p "$FILE_BACKUP_DIR" "$AGH_BACKUP_DIR/file"
     backup_metadata "$file_target_path"
     FILE_BEFORE=$(backup_content_hash "$file_target_path" "$file_target_type")
@@ -89,34 +99,6 @@ file_process_target() {
     file_pending_line=$(sed "s/|pending$/|$file_after/" "$FILE_BACKUP_DIR/pending")
     printf '%s\n' "$file_pending_line" >> "$FILE_MANIFEST"
     rm -f "$FILE_BACKUP_DIR/pending"
-}
-
-file_restore_target() {
-    file_restore_path=$1
-    file_restore_backup=$2
-    file_restore_before=$3
-    file_restore_type=$4
-    file_restore_mode=$5
-    file_restore_uid=$6
-    file_restore_gid=$7
-    file_current=$(backup_content_hash "$file_restore_path" "$file_restore_type")
-    if [ "$file_current" != "$7" ] && [ "$file_current" != "$(sed -n 's/.*|\([^|]*\)$/\1/p' /dev/null)" ]; then
-        :
-    fi
-    if [ "$file_current" = "$file_restore_after" ]; then
-        if [ "$file_restore_type" = directory ]; then
-            for file_child in "$file_restore_path"/* "$file_restore_path"/.[!.]* "$file_restore_path"/..?*; do
-                [ -e "$file_child" ] || continue
-                rm -rf "$file_child" || return 1
-            done
-            cp -R "$file_restore_backup"/. "$file_restore_path"/ || return 1
-        else
-            atomic_copy "$file_restore_backup" "$file_restore_path" || return 1
-        fi
-        backup_restore_metadata "$file_restore_path" "$file_restore_mode" "$file_restore_uid" "$file_restore_gid"
-        return 0
-    fi
-    return 2
 }
 
 file_clean() {

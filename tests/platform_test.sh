@@ -39,9 +39,9 @@ valid_port 30000 || fail 'port 30000 rejected'
 PORT_STATE_FILE="$fixture.occupied"
 printf 'web_port=35001\ndns_port=35002\n' > "$PORT_STATE_FILE"
 port_is_free() { [ "$1" != 35001 ]; }
-load_or_allocate_ports "$PORT_STATE_FILE" || fail 'occupied port allocation failed'
-[ "$PORT_WEB" != 35001 ] || fail 'occupied web port reused'
-[ "$PORT_WEB" != "$PORT_DNS" ] || fail 'allocated ports collide'
+load_or_allocate_ports "$PORT_STATE_FILE" || fail 'fixed port reload failed'
+[ "$PORT_WEB" = 35001 ] || fail 'existing web port changed on reinstall'
+[ "$PORT_DNS" = 35002 ] || fail 'existing DNS port changed on reinstall'
 
 printf 'web_port=35003\ndns_port=35003\n' > "$PORT_STATE_FILE"
 port_is_free() { return 0; }

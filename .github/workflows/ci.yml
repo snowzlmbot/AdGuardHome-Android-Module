@@ -23,20 +23,15 @@ jobs:
           sh tests/migration_test.sh
           sh tests/core_worker_test.sh
           sh tests/supervisor_test.sh
+          sh tests/control_test.sh
           sh tests/network_test.sh
           sh tests/firewall_test.sh
           sh tests/proxy_adapter_test.sh
           sh tests/file_adapter_test.sh
           sh tests/diagnostics_test.sh
           sh tests/uninstall_test.sh
-      - name: Download pinned packaging fixtures
-        run: |
-          curl -LfsS --retry 3 --max-time 180 \
-            https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.79/AdGuardHome_linux_arm64.tar.gz \
-            -o /tmp/AdGuardHome_linux_arm64_v0.107.79.tar.gz
-          curl -LfsS --retry 3 --max-time 180 \
-            https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.79/AdGuardHome_linux_armv7.tar.gz \
-            -o /tmp/AdGuardHome_linux_armv7_v0.107.79.tar.gz
+          sh tests/install_options_test.sh
+          sh tests/webui_test.sh
       - name: Run packaging test
         shell: sh
         run: sh tests/package_test.sh

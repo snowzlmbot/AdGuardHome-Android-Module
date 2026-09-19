@@ -26,17 +26,18 @@ vpn=false
 dns4=192.0.2.1,192.0.2.2
 dns6=2001:db8::1'
 grep -F 'state=ready' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'wifi state not ready'
-grep -F 'mode=1' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'mode missing'
+grep -F 'mode=2' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'default mode missing'
 grep -F 'network=wifi' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'wifi not parsed'
 grep -F 'dns4=192.0.2.1,192.0.2.2' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'dns4 not parsed'
 
-sed -i 's/^mode=.*/mode=2/' "$AGH_CONFIG_DIR/mode.conf"
+sed -i 's/^mode=.*/mode=1/' "$AGH_CONFIG_DIR/mode.conf"
 run_snapshot 'network=mobile
 vpn=true
 dns4=198.51.100.1
 dns6='
 grep -F 'network=mobile' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'mobile not parsed'
 grep -F 'vpn=true' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'vpn not parsed'
+grep -F 'mode=1' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'LAN-compatible mode missing'
 
 sed -i 's/^mode=.*/mode=3/' "$AGH_CONFIG_DIR/mode.conf"
 run_snapshot 'network=ethernet
