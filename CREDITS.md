@@ -1,30 +1,28 @@
 # Credits
 
+感谢以下项目和开发者对 Android DNS 过滤模块生态的贡献。
+
 ## Original module
 
-Thanks to top大佬 / @410154425 for the original AdGuardHome Magisk module:
+感谢 [@410154425](https://github.com/410154425) 发布原始的 [AdGuardHome_magisk](https://github.com/410154425/AdGuardHome_magisk) 项目。
 
-- https://github.com/410154425/AdGuardHome_magisk
-
-The original project was the reference for the initial Android integration, DNS redirection modes, local-network/VPN compatibility ideas, pause/resume behavior, and ARM architecture packaging.
+该项目为 Android 集成、DNS 重定向、局域网/VPN 兼容、暂停恢复和多架构支持提供了重要参考。
 
 ## Continued development
 
-Thanks to @liuzq2002 for the continued development project:
+感谢 [@liuzq2002](https://github.com/liuzq2002) 持续维护 [Adguard-Home-For-Magisk-Mod](https://github.com/liuzq2002/Adguard-Home-For-Magisk-Mod)。
 
-- https://github.com/liuzq2002/Adguard-Home-For-Magisk-Mod
+该项目在模块生命周期、动态管理端口、代理适配、诊断信息、更新元数据和卸载流程方面提供了有价值的实践经验。
 
-The continued project was the reference for modular lifecycle organization, dynamic management ports, proxy integration direction, diagnostics, update metadata, and uninstall workflow.
+## Upstream projects
 
-## KernelSU
+- [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome) by AdguardTeam
+- [KernelSU](https://github.com/tiann/KernelSU)
+- [anti-AD](https://github.com/privacy-protection-tools/anti-AD)
+- [GOODBYEADS](https://github.com/8680/GOODBYEADS)
 
-- KernelSU documentation: https://kernelsu.org/zh_CN/guide/what-is-kernelsu.html
-- KernelSU module differences: https://kernelsu.org/zh_CN/guide/difference-with-magisk.html
+感谢所有上游项目的维护者和贡献者。
 
-## Upstream software and rules
+## License information
 
-- AdGuard Home by AdguardTeam: https://github.com/AdguardTeam/AdGuardHome
-- anti-AD: https://github.com/privacy-protection-tools/anti-AD
-- GOODBYEADS and other rule sources are listed in `THIRD_PARTY_NOTICES.md`.
-
-This project uses an independent rewrite of its module control scripts. The first referenced repository did not provide a module-level license in the audited commit, so its scripts are not copied and relabeled under this project's license.
+本项目新增的模块控制代码使用仓库根目录的 MIT License。AdGuard Home、KernelSU 以及过滤规则数据分别遵循各自的上游许可证，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。

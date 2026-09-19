@@ -8,9 +8,9 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
-> 当前 Latest：**0.1.7**
+> 当前版本：**0.1.8**
 >
-> 直接下载：[AdGuardHome-Android-Module-0.1.7-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.7/AdGuardHome-Android-Module-0.1.7-agh-0.107.79.zip)
+> 直接下载：[AdGuardHome-Android-Module-0.1.8-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.8/AdGuardHome-Android-Module-0.1.8-agh-0.107.79.zip)
 
 ## 项目入口
 
@@ -26,12 +26,12 @@
 
 ## 项目定位
 
-本项目是在研究两个公开项目后进行的独立重写：
+本项目将 AdGuard Home 集成到 Android Root 环境，提供 DNS 过滤、网络兼容、可选适配器和可视化控制功能。
 
 - 原始项目：[@410154425](https://github.com/410154425) / [`AdGuardHome_magisk`](https://github.com/410154425/AdGuardHome_magisk)
 - 后续维护项目：[@liuzq2002](https://github.com/liuzq2002) / [`Adguard-Home-For-Magisk-Mod`](https://github.com/liuzq2002/Adguard-Home-For-Magisk-Mod)
 
-目标不是简单拼接两个模块，而是保留有效功能，同时把核心、网络、防火墙、代理适配、文件适配、诊断和生命周期拆成相互隔离的组件。
+项目采用分层组件结构，让核心 DNS、网络发现、防火墙、代理适配、文件适配、诊断和生命周期可以独立运行和维护。
 
 ## 主要能力
 
@@ -45,7 +45,7 @@
 | WebUI | KernelSU 原生 `webroot/` 控制台 |
 | 凭据 | 首次本地生成随机管理密码，不使用 `root/root` |
 | 适配器 | Box/Clash/Mihomo 代理适配；文件级去广告；默认关闭 |
-| 更新 | GitHub Release 完整包校验，运行时不下载远程 Shell |
+| 更新方式 | GitHub Release 完整包与校验文件 |
 
 ## 安装与升级
 
@@ -105,7 +105,7 @@ KernelSU → 模块 → AdGuardHome Android Module → WebUI
 
 随后自动打开浏览器。
 
-普通用户不需要执行 `scripts/` 中的内部脚本。
+日常使用无需手动执行 `scripts/` 中的模块脚本。
 
 ## 管理地址与数据
 

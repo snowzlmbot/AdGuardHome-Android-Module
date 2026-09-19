@@ -2,9 +2,9 @@
 
 面向 Magisk 与 KernelSU 的模块化 AdGuard Home DNS 过滤模块。
 
-> 这是一个参考两份公开项目后独立重写的实现。不会在线下载并执行远程 Shell，不会自动删除其他模块；代理与文件级去广告仅在用户明确启用后运行。
+支持 DNS 过滤、网络兼容、KernelSU WebUI、固定端口、可选代理适配和可选文件级去广告。
 
-> **0.1.0–0.1.4 已知问题：** 早期版本存在生命周期、首次认证、现代 Android 网络识别或防火墙规则问题。请直接升级/重刷 `0.1.7`；现有随机端口和凭据会保留。
+当前版本：**0.1.7**
 
 ## 主要功能
 
@@ -84,7 +84,7 @@ sh /data/adb/modules/AdGuardHome/action.sh status
 sh /data/adb/modules/AdGuardHome/action.sh open
 ```
 
-普通用户不需要手动运行 `scripts/` 目录中的内部脚本。
+日常使用无需手动执行 `scripts/` 中的模块脚本。
 
 ## AdGuard Home Web 管理界面
 
