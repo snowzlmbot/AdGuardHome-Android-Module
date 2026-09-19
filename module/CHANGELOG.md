@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- Added VPN interface bypass for `tun`, `tap`, `wg`, `ppp`, and Tailscale-style interfaces.
+- Keep Wi‑Fi/mobile DNS filtering active while allowing VPN DNS and encrypted DNS traffic through the VPN path.
+- Added VPN-over-Wi‑Fi/mobile firewall tests and proxy coexistence behavior.
+
 ## 0.1.9
 
 - Refined public project documentation and repository navigation.

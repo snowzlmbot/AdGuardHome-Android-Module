@@ -122,6 +122,15 @@ firewall_mode_exception() {
     firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p tcp --dport 53 -j RETURN || return 1
 }
 
+firewall_add_vpn_bypass() {
+    firewall_binary=$1
+    firewall_table=$2
+    firewall_chain=$3
+    for firewall_iface in tun+ tap+ wg+ ppp+ tailscale+; do
+        firewall_exec "$firewall_binary" -t "$firewall_table" -A "$firewall_chain" -o "$firewall_iface" -j RETURN || return 1
+    done
+}
+
 firewall_read_core() {
     [ -f "$AGH_STATE_DIR/core.state" ] || return 1
     [ "$(firewall_state_value "$AGH_STATE_DIR/core.state" state)" = ready ] || return 1
@@ -143,6 +152,8 @@ firewall_ensure() {
     FW_NETWORK_MODE=$(firewall_state_value "$AGH_STATE_DIR/network.state" mode); [ -n "$FW_NETWORK_MODE" ] || FW_NETWORK_MODE=unknown
     FW_NETWORK_TYPE=$(firewall_state_value "$AGH_STATE_DIR/network.state" network); [ -n "$FW_NETWORK_TYPE" ] || FW_NETWORK_TYPE=unknown
     FW_NETWORK_VPN=$(firewall_state_value "$AGH_STATE_DIR/network.state" vpn); [ -n "$FW_NETWORK_VPN" ] || FW_NETWORK_VPN=unknown
+    FW_BYPASS_VPN_DNS=$(firewall_config_value bypass_vpn_dns); [ -n "$FW_BYPASS_VPN_DNS" ] || FW_BYPASS_VPN_DNS=true
+    FW_BYPASS_VPN_ENCRYPTED=$(firewall_config_value bypass_vpn_encrypted_dns); [ -n "$FW_BYPASS_VPN_ENCRYPTED" ] || FW_BYPASS_VPN_ENCRYPTED=true
 
     firewall_remove_jump_all "$firewall_binary_v4" nat "$FW_V4_NAT"
     firewall_remove_jump_all "$firewall_binary_v4" filter "$FW_V4_FILTER"
@@ -152,6 +163,9 @@ firewall_ensure() {
     firewall_ensure_chain "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded v6_filter_chain; return 1; }
 
     if [ "$FW_V4_REDIRECT" = true ]; then
+        if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_DNS" = true ]; then
+            firewall_add_vpn_bypass "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded vpn_v4_bypass; return 1; }
+        fi
         FW_LAN_TARGET=$(firewall_config_value lan_dns_target)
         FW_BOOTSTRAP_TARGET=$(firewall_config_value bootstrap_dns)
         if [ "$FW_NETWORK_MODE" = 1 ] && [ "$FW_NETWORK_VPN" = false ] && [ -n "$FW_LAN_TARGET" ]; then
@@ -163,6 +177,15 @@ firewall_ensure() {
         firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -p udp --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || { firewall_remove; firewall_state_write degraded v4_redirect; return 1; }
         firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -p tcp --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || { firewall_remove; firewall_state_write degraded v4_redirect; return 1; }
         firewall_insert_jump "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_jump; return 1; }
+    fi
+    if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_ENCRYPTED" = true ]; then
+        FW_DOT_BLOCK=false
+        FW_V4_DOQ_BLOCK=false
+        FW_V6_DOT_BLOCK=false
+        FW_V6_DOQ_BLOCK=false
+        if [ "$FW_BYPASS_VPN_DNS" = true ]; then
+            firewall_add_vpn_bypass "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded vpn_v6_bypass; return 1; }
+        fi
     fi
     if [ "$FW_DOT_BLOCK" = true ] || [ "$FW_V4_DOQ_BLOCK" = true ]; then
         [ "$FW_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p tcp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v4_dot_tcp; return 1; }

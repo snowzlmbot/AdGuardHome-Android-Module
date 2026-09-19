@@ -41,6 +41,14 @@ printf 'state=ready\nmode=1\nnetwork=wifi\nvpn=false\ndns4=192.0.2.1\ndns6=2001:
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once || fail 'mode exception ensure failed'
 grep -F -- '192.0.2.53' "$fixture/iptables.log" >/dev/null || fail 'mode exception missing'
 
+printf 'state=ready\nmode=1\nnetwork=mobile\nvpn=true\ndns4=198.51.100.1\ndns6=\n' > "$AGH_STATE_DIR/network.state"
+: > "$fixture/iptables.log"
+: > "$fixture/ip6tables.log"
+IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once || fail 'VPN bypass ensure failed'
+grep -F -- '-o tun+ -j RETURN' "$fixture/iptables.log" >/dev/null || fail 'VPN NAT bypass missing'
+grep -F -- '-o tun+ -j RETURN' "$fixture/ip6tables.log" >/dev/null || fail 'VPN IPv6 bypass missing'
+if grep -F -- '--dport 853' "$fixture/iptables.log" | tail -n 20 | grep -q -- '-A AGHADF4'; then fail 'VPN encrypted DNS was blocked'; fi
+
 echo remove > "$AGH_RUN_DIR/firewall/request"
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once || fail 'remove failed'
 grep -F 'state=removed' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'firewall removal state missing'
