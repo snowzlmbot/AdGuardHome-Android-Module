@@ -22,7 +22,7 @@ jobs:
           sh tests/credentials_test.sh
           sh tests/migration_test.sh
           sh tests/core_worker_test.sh
-          sh tests/core_native_test.sh
+          sudo -E sh tests/core_native_test.sh
           sh tests/supervisor_test.sh
           sh tests/control_test.sh
           sh tests/network_test.sh
