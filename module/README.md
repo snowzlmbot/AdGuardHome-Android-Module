@@ -158,4 +158,4 @@ admin
 - [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
 - [`licenses/`](licenses/)
 
-感谢原作者 top大佬 / @410154425 与后续维护者 @liuzq2002。新控制脚本为独立重写；AdGuard Home 与过滤规则继续遵循各自许可证。
+感谢原作者 top大佬 / @410154425 与后续维护者 @liuzq2002。AdGuard Home 与过滤规则继续遵循各自许可证。

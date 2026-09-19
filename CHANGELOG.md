@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11
+
+- Adds a separate native Android Manager app repository with Root-gated status/control and a stable module protocol.
+- Keeps the installable module and project documentation clearly separated.
+
 ## 0.1.10
 
 - Added VPN interface bypass for `tun`, `tap`, `wg`, `ppp`, and Tailscale-style interfaces.
