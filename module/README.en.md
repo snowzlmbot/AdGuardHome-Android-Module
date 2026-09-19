@@ -19,6 +19,4 @@ The project uses isolated workers for the core, network discovery, firewall, pro
 - Reversible, explicitly enabled proxy/file adapters.
 - Release-only updates with cryptographic verification.
 
-The first release does not claim APatch, x86, x86_64, or real-device compatibility until the corresponding validation evidence is published.
-
 See `README.md` for installation, safety notes, development tests, attribution, and third-party license information.

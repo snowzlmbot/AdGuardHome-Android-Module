@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-export MODDIR="$ROOT"
+export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
 export AGH_CONFIG_DIR="$AGH_ROOT/config"
 export AGH_STATE_DIR="$AGH_ROOT/state"
@@ -22,7 +22,7 @@ printf 'password=super-secret\n' > "$AGH_STATE_DIR/credentials.conf"
 printf 'serialno=private-device\npassword=super-secret\n' > "$AGH_LOG_DIR/private.log"
 printf 'web_port=35001\ndns_port=35002\n' > "$AGH_STATE_DIR/ports.conf"
 
-output=$(sh "$ROOT/scripts/diagnostics/diagnostics.sh")
+output=$(sh "$ROOT/module/scripts/diagnostics/diagnostics.sh")
 grep -F 'core=ready' <<EOF >/dev/null || fail 'core state missing'
 $output
 EOF
@@ -30,7 +30,7 @@ printf '%s\n' "$output" | grep -F 'super-secret' >/dev/null && fail 'diagnostics
 printf '%s\n' "$output" | grep -F 'private-device' >/dev/null && fail 'diagnostics leaked serial' || true
 
 printf '2026-01-01 [core] password=super-secret token=abc123 safe-message\n' > "$AGH_LOG_DIR/events.log"
-log_output=$(sh "$ROOT/scripts/diagnostics/diagnostics.sh" logs)
+log_output=$(sh "$ROOT/module/scripts/diagnostics/diagnostics.sh" logs)
 printf '%s\n' "$log_output" | grep -F 'safe-message' >/dev/null || fail 'diagnostic logs missing content'
 printf '%s\n' "$log_output" | grep -F 'super-secret' >/dev/null && fail 'diagnostic logs leaked password' || true
 printf '%s\n' "$log_output" | grep -F 'abc123' >/dev/null && fail 'diagnostic logs leaked token' || true

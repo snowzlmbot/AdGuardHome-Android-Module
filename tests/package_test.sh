@@ -49,7 +49,7 @@ export INSTALL_ENABLE_IPV6=true
 export INSTALL_BLOCK_853=true
 export INSTALL_ENABLE_PROXY=false
 export INSTALL_ENABLE_FILE=false
-. '$ROOT/customize.sh'
+. '$ROOT/module/customize.sh'
 EOF
 sh "$fixture/run-installer.sh" || fail 'customize.sh installation simulation failed'
 for installed_file in service.sh action.sh boot-completed.sh uninstall.sh webroot/index.html scripts/lifecycle/supervisor.sh; do

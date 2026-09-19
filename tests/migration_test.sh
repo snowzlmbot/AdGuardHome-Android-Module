@@ -2,11 +2,11 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-export MODDIR="$ROOT"
-. "$ROOT/scripts/lib/common.sh"
-. "$ROOT/scripts/lib/atomic.sh"
-. "$ROOT/scripts/lib/config.sh"
-. "$ROOT/scripts/lifecycle/migrate.sh"
+export MODDIR="$ROOT/module"
+. "$ROOT/module/scripts/lib/common.sh"
+. "$ROOT/module/scripts/lib/atomic.sh"
+. "$ROOT/module/scripts/lib/config.sh"
+. "$ROOT/module/scripts/lifecycle/migrate.sh"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 assert_file_contains() { grep -F "$2" "$1" >/dev/null 2>&1 || fail "$3"; }

@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-export MODDIR="$ROOT"
+export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
 export AGH_CONFIG_DIR="$AGH_ROOT/config"
 export AGH_STATE_DIR="$AGH_ROOT/state"
@@ -52,7 +52,7 @@ export FAKE_CORE_STATE=ready
 export FAKE_FIREWALL_STATE=failed
 export FAKE_PROXY_STATE=failed
 export FAKE_FILE_STATE=failed
-sh "$ROOT/scripts/lifecycle/supervisor.sh" once || true
+sh "$ROOT/module/scripts/lifecycle/supervisor.sh" once || true
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'optional failure changed core'
 grep -F 'state=failed' "$AGH_STATE_DIR/proxy.state" >/dev/null || fail 'proxy failure not isolated'
 grep -F 'state=failed' "$AGH_STATE_DIR/file.state" >/dev/null || fail 'file failure not isolated'
@@ -61,7 +61,7 @@ grep -F '纯加密上游' "$MODULE_PROP_FILE" >/dev/null || fail 'module mode de
 rm -f "$AGH_STATE_DIR/proxy.state" "$AGH_STATE_DIR/file.state" "$AGH_RUN_DIR/firewall/request"
 touch "$AGH_STATE_DIR/paused"
 export FAKE_CORE_STATE=ready
-sh "$ROOT/scripts/lifecycle/supervisor.sh" once || true
+sh "$ROOT/module/scripts/lifecycle/supervisor.sh" once || true
 [ -f "$AGH_RUN_DIR/firewall/request" ] || fail 'pause did not request firewall removal'
 grep -F 'state=paused' "$AGH_STATE_DIR/proxy.state" >/dev/null || fail 'proxy pause state missing'
 grep -F 'state=paused' "$AGH_STATE_DIR/file.state" >/dev/null || fail 'file pause state missing'
@@ -69,7 +69,7 @@ grep -F '已暂停' "$MODULE_PROP_FILE" >/dev/null || fail 'paused module descri
 rm -f "$AGH_STATE_DIR/paused" "$AGH_RUN_DIR/firewall/request"
 
 export FAKE_CORE_STATE=failed
-sh "$ROOT/scripts/lifecycle/supervisor.sh" once || true
+sh "$ROOT/module/scripts/lifecycle/supervisor.sh" once || true
 [ -f "$AGH_RUN_DIR/firewall/request" ] || fail 'core failure did not request firewall removal'
 grep -F 'remove' "$AGH_RUN_DIR/firewall/request" >/dev/null || fail 'firewall removal request malformed'
 

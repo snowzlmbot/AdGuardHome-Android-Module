@@ -28,7 +28,7 @@ done
 
 "$ROOT/tests/static/check-shell.sh" "$ROOT"
 
-for required in module.prop customize.sh service.sh action.sh uninstall.sh boot-completed.sh webroot/index.html; do
+for required in module/module.prop module/customize.sh module/service.sh module/action.sh module/uninstall.sh module/boot-completed.sh module/webroot/index.html; do
     if [ ! -f "$ROOT/$required" ]; then
         printf 'missing module file: %s\n' "$required" >&2
         exit 1

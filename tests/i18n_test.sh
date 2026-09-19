@@ -14,7 +14,7 @@ EOF
 chmod 0755 "$fixture/bin/getprop"
 PATH="$fixture/bin:$PATH"
 export PATH AGH_STATE_DIR="$fixture/state" TEST_LOCALE=zh-CN
-. "$ROOT/scripts/lib/i18n.sh"
+. "$ROOT/module/scripts/lib/i18n.sh"
 module_detect_language || fail 'Chinese language detection failed'
 [ "$MODULE_LANG" = zh ] || fail 'Chinese locale not detected'
 [ "$(i18n_text 中文 English)" = 中文 ] || fail 'Chinese translation failed'

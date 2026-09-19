@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-. "$ROOT/scripts/lib/credentials.sh"
+. "$ROOT/module/scripts/lib/credentials.sh"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
@@ -20,7 +20,7 @@ ensure_credentials "$state" || fail 'credential preservation failed'
 password_two=$(sed -n 's/^password=//p' "$state")
 [ "$password_one" = "$password_two" ] || fail 'existing password changed'
 
-if grep -qi 'password=' "$ROOT/module.prop"; then
+if grep -qi 'password=' "$ROOT/module/module.prop"; then
     fail 'module metadata exposes a password'
 fi
 

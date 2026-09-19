@@ -7,7 +7,7 @@ trap 'rm -rf "$fixture"' EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 ui_print() { :; }
 
-export MODDIR="$ROOT"
+export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
 export AGH_CONFIG_DIR="$AGH_ROOT/config"
 export AGH_STATE_DIR="$AGH_ROOT/state"
@@ -15,18 +15,18 @@ export AGH_RUN_DIR="$AGH_ROOT/run"
 export AGH_LOG_DIR="$AGH_ROOT/logs"
 export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 export AGH_DATA_DIR="$AGH_ROOT/data"
-. "$ROOT/scripts/lib/common.sh"
-. "$ROOT/scripts/lib/atomic.sh"
-. "$ROOT/scripts/lib/config.sh"
-. "$ROOT/scripts/lib/i18n.sh"
-. "$ROOT/scripts/lifecycle/install-options.sh"
+. "$ROOT/module/scripts/lib/common.sh"
+. "$ROOT/module/scripts/lib/atomic.sh"
+. "$ROOT/module/scripts/lib/config.sh"
+. "$ROOT/module/scripts/lib/i18n.sh"
+. "$ROOT/module/scripts/lifecycle/install-options.sh"
 MODULE_LANG=zh
 export MODULE_LANG
 
 ensure_dirs
-cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
-cp "$ROOT/config/proxy-adapter.conf" "$AGH_CONFIG_DIR/proxy-adapter.conf"
-cp "$ROOT/config/file-adapter.conf" "$AGH_CONFIG_DIR/file-adapter.conf"
+cp "$ROOT/module/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
+cp "$ROOT/module/config/proxy-adapter.conf" "$AGH_CONFIG_DIR/proxy-adapter.conf"
+cp "$ROOT/module/config/file-adapter.conf" "$AGH_CONFIG_DIR/file-adapter.conf"
 
 export INSTALL_NONINTERACTIVE=1
 export INSTALL_DNS_MODE=3

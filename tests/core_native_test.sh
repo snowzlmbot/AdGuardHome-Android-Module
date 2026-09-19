@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d)
 cleanup() {
     AGH_ROOT="$fixture/agh" AGH_RUN_DIR="$fixture/agh/run" AGH_STATE_DIR="$fixture/agh/state" AGH_LOG_DIR="$fixture/agh/logs" AGH_CONFIG_DIR="$fixture/agh/config" AGH_DATA_DIR="$fixture/agh/data" AGH_BACKUP_DIR="$fixture/agh/backup" MODDIR="$ROOT" \
-      sh "$ROOT/scripts/core/core-worker.sh" stop >/dev/null 2>&1 || true
+      sh "$ROOT/module/scripts/core/core-worker.sh" stop >/dev/null 2>&1 || true
     rm -rf "$fixture"
 }
 trap cleanup EXIT INT TERM
@@ -19,7 +19,7 @@ actual=$(sha256sum "$asset" | awk '{print $1}')
 [ "$actual" = c48f4a43000665484c5ec28177de11a004759b620dae8f77b2aabefc9ef3687f ] || fail 'native tarball checksum mismatch'
 tar -xzf "$asset" -C "$fixture"
 
-export MODDIR="$ROOT"
+export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
 export AGH_CONFIG_DIR="$AGH_ROOT/config"
 export AGH_STATE_DIR="$AGH_ROOT/state"
@@ -30,12 +30,12 @@ export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 mkdir -p "$AGH_ROOT/bin" "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH_LOG_DIR" "$AGH_DATA_DIR" "$AGH_BACKUP_DIR"
 cp "$fixture/AdGuardHome/AdGuardHome" "$AGH_ROOT/bin/AdGuardHome"
 chmod 0755 "$AGH_ROOT/bin/AdGuardHome"
-cp "$ROOT/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
-cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
-. "$ROOT/scripts/lib/credentials.sh"
+cp "$ROOT/module/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+cp "$ROOT/module/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
+. "$ROOT/module/scripts/lib/credentials.sh"
 ensure_credentials "$AGH_STATE_DIR/credentials.conf" || fail 'credential initialization failed'
 
-CORE_START_WAIT=30 CORE_DNS_WAIT=30 sh "$ROOT/scripts/core/core-worker.sh" once || {
+CORE_START_WAIT=30 CORE_DNS_WAIT=30 sh "$ROOT/module/scripts/core/core-worker.sh" once || {
     sed -n '1,120p' "$AGH_LOG_DIR/core-process.log" >&2 || true
     fail 'native core initialization failed'
 }
@@ -45,5 +45,5 @@ grep -F 'password: $2' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'bc
 grep -F 'https://1.12.12.12/dns-query' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'mode upstream policy was not applied'
 web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
 curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
-sh "$ROOT/scripts/core/core-worker.sh" stop || fail 'native core stop failed'
+sh "$ROOT/module/scripts/core/core-worker.sh" stop || fail 'native core stop failed'
 printf '%s\n' 'native core tests passed'

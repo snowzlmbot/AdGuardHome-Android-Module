@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-export MODDIR="$ROOT"
+export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
 export AGH_CONFIG_DIR="$AGH_ROOT/config"
 export AGH_STATE_DIR="$AGH_ROOT/state"
@@ -14,11 +14,11 @@ export AGH_LOG_DIR="$AGH_ROOT/logs"
 export AGH_DATA_DIR="$AGH_ROOT/data"
 export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR"
-cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
+cp "$ROOT/module/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
 
 run_snapshot() {
     printf '%s\n' "$1" > "$fixture/network.snapshot"
-    NETWORK_SNAPSHOT_FILE="$fixture/network.snapshot" sh "$ROOT/scripts/network/network-worker.sh" once
+    NETWORK_SNAPSHOT_FILE="$fixture/network.snapshot" sh "$ROOT/module/scripts/network/network-worker.sh" once
 }
 
 run_snapshot 'network=wifi
@@ -54,17 +54,17 @@ grep -F 'state=degraded' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'inva
 grep -F 'network=ethernet' "$AGH_STATE_DIR/network.lastgood" >/dev/null || fail 'last known good state not retained'
 
 mock_path="$ROOT/tests/fixtures/android-network-bin:$PATH"
-MOCK_NET=wifi PATH="$mock_path" sh "$ROOT/scripts/network/network-worker.sh" once || fail 'modern Wi-Fi discovery failed'
+MOCK_NET=wifi PATH="$mock_path" sh "$ROOT/module/scripts/network/network-worker.sh" once || fail 'modern Wi-Fi discovery failed'
 grep -F 'network=wifi' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'modern Wi-Fi not detected'
 grep -F 'interface=wlan0' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'Wi-Fi interface missing'
 grep -F 'dns4=192.0.2.53' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'Wi-Fi DNS not parsed'
 
-MOCK_NET=mobile PATH="$mock_path" sh "$ROOT/scripts/network/network-worker.sh" once || fail 'mobile data discovery failed'
+MOCK_NET=mobile PATH="$mock_path" sh "$ROOT/module/scripts/network/network-worker.sh" once || fail 'mobile data discovery failed'
 grep -F 'network=mobile' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'mobile data not detected'
 grep -F 'interface=rmnet_data0' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'mobile interface missing'
 grep -F 'vpn=true' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'VPN transport not detected'
 
-MOCK_NET=hidden PATH="$mock_path" sh "$ROOT/scripts/network/network-worker.sh" once || fail 'hidden-DNS network should remain usable'
+MOCK_NET=hidden PATH="$mock_path" sh "$ROOT/module/scripts/network/network-worker.sh" once || fail 'hidden-DNS network should remain usable'
 grep -F 'state=ready' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'hidden-DNS network marked failed'
 grep -F 'reason=dns_not_exposed' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'hidden-DNS reason missing'
 

@@ -2,7 +2,7 @@
 
 ## Original module
 
-Thanks to top大佬 / `@410154425` for the original AdGuardHome Magisk module:
+Thanks to top大佬 / @410154425 for the original AdGuardHome Magisk module:
 
 - https://github.com/410154425/AdGuardHome_magisk
 
@@ -10,7 +10,7 @@ The original project was the reference for the initial Android integration, DNS 
 
 ## Continued development
 
-Thanks to `@liuzq2002` for the continued development project:
+Thanks to @liuzq2002 for the continued development project:
 
 - https://github.com/liuzq2002/Adguard-Home-For-Magisk-Mod
 

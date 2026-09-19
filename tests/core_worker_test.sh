@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
-export MODDIR="$ROOT"
+export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
 export AGH_CONFIG_DIR="$AGH_ROOT/config"
 export AGH_STATE_DIR="$AGH_ROOT/state"
@@ -14,12 +14,12 @@ export AGH_LOG_DIR="$AGH_ROOT/logs"
 export AGH_DATA_DIR="$AGH_ROOT/data"
 export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 mkdir -p "$AGH_ROOT/bin" "$AGH_CONFIG_DIR"
-cp "$ROOT/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
-cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
+cp "$ROOT/module/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+cp "$ROOT/module/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
 printf 'web_port=35001\ndns_port=35002\n' > "$AGH_STATE_DIR.ports.tmp"
 mkdir -p "$AGH_STATE_DIR"
 mv "$AGH_STATE_DIR.ports.tmp" "$AGH_STATE_DIR/ports.conf"
-. "$ROOT/scripts/lib/credentials.sh"
+. "$ROOT/module/scripts/lib/credentials.sh"
 ensure_credentials "$AGH_STATE_DIR/credentials.conf" || fail 'test credentials missing'
 
 cat > "$AGH_ROOT/bin/AdGuardHome" <<'EOF'
@@ -58,7 +58,7 @@ export CORE_START_WAIT=1
 export CORE_DNS_WAIT=1
 export CORE_TEST_MODE=1
 
-sh "$ROOT/scripts/core/core-worker.sh" once || {
+sh "$ROOT/module/scripts/core/core-worker.sh" once || {
     sed -n '1,120p' "$AGH_STATE_DIR/core.state" >&2 || true
     sed -n '1,120p' "$AGH_LOG_DIR/core-process.log" >&2 || true
     fail 'core did not start'
@@ -74,9 +74,9 @@ grep -F 'mode=2' "$AGH_CONFIG_DIR/mode.conf" >/dev/null || fail 'mode state was 
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'core not ready'
 grep -F 'firewall_authorized=1' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'firewall authorization missing'
 
-sh "$ROOT/scripts/core/core-worker.sh" stop || fail 'core stop failed'
+sh "$ROOT/module/scripts/core/core-worker.sh" stop || fail 'core stop failed'
 rm -f "$AGH_ROOT/bin/AdGuardHome"
-if sh "$ROOT/scripts/core/core-worker.sh" once; then fail 'missing core accepted'; fi
+if sh "$ROOT/module/scripts/core/core-worker.sh" once; then fail 'missing core accepted'; fi
 grep -F 'state=failed' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'missing core state not failed'
 if grep -F 'firewall_authorized=1' "$AGH_STATE_DIR/core.state" >/dev/null; then fail 'failed core authorized firewall'; fi
 
