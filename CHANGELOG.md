@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+- Fixed real-device `dumpsys connectivity` argument overflow by streaming output through a temporary file.
+- Detect Wi‑Fi, mobile data, Ethernet, VPN-over-Wi‑Fi/mobile, and proxy/VPN interfaces without treating VPN as no network.
+- Fixed iptables/ip6tables filter-table syntax and stop reporting ready when a rule command fails.
+- Added filter-list readiness/count/size to WebUI.
+- Added effective upstream profiles for LAN-compatible, encrypted DoH, and Bootstrap modes with validated safe restarts.
+- Replaced unreachable Quad9 defaults found in device logs while preserving user-customized upstreams.
+
 ## 0.1.5
 
 - Fixed modern Android network discovery without storing large `dumpsys connectivity` output in a shell argument.
