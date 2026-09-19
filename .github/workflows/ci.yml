@@ -22,6 +22,7 @@ jobs:
           sh tests/credentials_test.sh
           sh tests/migration_test.sh
           sh tests/core_worker_test.sh
+          sh tests/core_native_test.sh
           sh tests/supervisor_test.sh
           sh tests/control_test.sh
           sh tests/network_test.sh
@@ -31,6 +32,7 @@ jobs:
           sh tests/diagnostics_test.sh
           sh tests/uninstall_test.sh
           sh tests/install_options_test.sh
+          sh tests/i18n_test.sh
           sh tests/webui_test.sh
       - name: Run packaging test
         shell: sh

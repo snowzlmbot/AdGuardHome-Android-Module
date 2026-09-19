@@ -18,7 +18,10 @@ export AGH_DATA_DIR="$AGH_ROOT/data"
 . "$ROOT/scripts/lib/common.sh"
 . "$ROOT/scripts/lib/atomic.sh"
 . "$ROOT/scripts/lib/config.sh"
+. "$ROOT/scripts/lib/i18n.sh"
 . "$ROOT/scripts/lifecycle/install-options.sh"
+MODULE_LANG=zh
+export MODULE_LANG
 
 ensure_dirs
 cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"

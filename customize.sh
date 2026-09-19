@@ -22,6 +22,7 @@ unzip -o "$ZIPFILE" 'module.prop' 'customize.sh' 'service.sh' 'action.sh' 'boot-
 . "$MODPATH/scripts/lib/platform.sh"
 . "$MODPATH/scripts/lib/credentials.sh"
 . "$MODPATH/scripts/lib/config.sh"
+. "$MODPATH/scripts/lib/i18n.sh"
 . "$MODPATH/scripts/lifecycle/migrate.sh"
 . "$MODPATH/scripts/lifecycle/install-options.sh"
 
@@ -29,6 +30,17 @@ ensure_dirs || {
     ui_print "! Cannot create persistent data directories"
     exit 1
 }
+
+module_detect_language || {
+    ui_print "! Language detection failed"
+    exit 1
+}
+if [ "$MODULE_LANG" = zh ]; then
+    module_install_description='[安装后请重启] 支持 KernelSU WebUI；首次启动后可查看运行状态和模式'
+else
+    module_install_description='[Reboot required] KernelSU WebUI provides runtime status and DNS mode'
+fi
+sed -i "s#^description=.*#description=$module_install_description#" "$MODPATH/module.prop" || exit 1
 
 migrate_configs || {
     ui_print "! Configuration migration failed; previous data was kept"

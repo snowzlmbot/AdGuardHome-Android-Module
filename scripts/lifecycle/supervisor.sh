@@ -8,6 +8,7 @@ export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
 . "$MODULE_SCRIPTS_DIR/lib/process.sh"
 . "$MODULE_SCRIPTS_DIR/lib/log.sh"
+. "$MODULE_SCRIPTS_DIR/lib/i18n.sh"
 
 supervisor_worker_dir=${SUPERVISOR_WORKER_DIR:-$MODDIR}
 
@@ -86,24 +87,35 @@ supervisor_consume_control() {
 
 supervisor_update_module_description() {
     supervisor_mode=$(supervisor_state_value "$AGH_STATE_DIR/network.state" mode || sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p')
-    case "$supervisor_mode" in
-        1) supervisor_mode_name='内网兼容' ;;
-        2) supervisor_mode_name='纯加密上游' ;;
-        3) supervisor_mode_name='Bootstrap' ;;
-        *) supervisor_mode_name='未知模式' ;;
-    esac
+    if [ "$MODULE_LANG" = zh ]; then
+        case "$supervisor_mode" in
+            1) supervisor_mode_name='内网兼容' ;;
+            2) supervisor_mode_name='纯加密上游' ;;
+            3) supervisor_mode_name='Bootstrap' ;;
+            *) supervisor_mode_name='未知模式' ;;
+        esac
+    else
+        case "$supervisor_mode" in
+            1) supervisor_mode_name='LAN compatible' ;;
+            2) supervisor_mode_name='Encrypted upstreams' ;;
+            3) supervisor_mode_name='Bootstrap' ;;
+            *) supervisor_mode_name='Unknown mode' ;;
+        esac
+    fi
     supervisor_core=$(supervisor_state_value "$AGH_STATE_DIR/core.state" state || printf 'unknown')
     supervisor_firewall=$(supervisor_state_value "$AGH_STATE_DIR/firewall.state" state || printf 'unknown')
-    if [ -f "$AGH_STATE_DIR/paused" ]; then
-        supervisor_status_name='已暂停'
-    elif [ -f "$AGH_STATE_DIR/core.disabled" ]; then
-        supervisor_status_name='已停止'
-    elif [ "$supervisor_core" = ready ] && [ "$supervisor_firewall" = ready ]; then
-        supervisor_status_name='运行中'
-    elif [ "$supervisor_core" = ready ]; then
-        supervisor_status_name='核心运行，过滤未生效'
+    if [ "$MODULE_LANG" = zh ]; then
+        if [ -f "$AGH_STATE_DIR/paused" ]; then supervisor_status_name='已暂停'
+        elif [ -f "$AGH_STATE_DIR/core.disabled" ]; then supervisor_status_name='已停止'
+        elif [ "$supervisor_core" = ready ] && [ "$supervisor_firewall" = ready ]; then supervisor_status_name='运行中'
+        elif [ "$supervisor_core" = ready ]; then supervisor_status_name='核心运行，过滤未生效'
+        else supervisor_status_name='异常'; fi
     else
-        supervisor_status_name='异常'
+        if [ -f "$AGH_STATE_DIR/paused" ]; then supervisor_status_name='Paused'
+        elif [ -f "$AGH_STATE_DIR/core.disabled" ]; then supervisor_status_name='Stopped'
+        elif [ "$supervisor_core" = ready ] && [ "$supervisor_firewall" = ready ]; then supervisor_status_name='Running'
+        elif [ "$supervisor_core" = ready ]; then supervisor_status_name='Core running, filtering inactive'
+        else supervisor_status_name='Error'; fi
     fi
     supervisor_description="[$supervisor_status_name | $supervisor_mode_name] AdGuard Home DNS filtering for Magisk and KernelSU"
     supervisor_module_prop=${MODULE_PROP_FILE:-$MODDIR/module.prop}
@@ -132,7 +144,9 @@ supervisor_aggregate() {
 
 supervisor_once() {
     ensure_dirs || return 1
+    module_detect_language || MODULE_LANG=en
     supervisor_consume_control
+    supervisor_run_worker network || true
     supervisor_run_worker core || true
     supervisor_core_state=$(supervisor_state_value "$AGH_STATE_DIR/core.state" state || printf 'unknown')
     supervisor_core_authorized=$(supervisor_state_value "$AGH_STATE_DIR/core.state" firewall_authorized || printf '0')
@@ -140,17 +154,28 @@ supervisor_once() {
         supervisor_request firewall remove
         supervisor_run_worker firewall || true
     elif [ "$supervisor_core_state" = ready ] && [ "$supervisor_core_authorized" = 1 ]; then
-        supervisor_run_worker network || true
         supervisor_run_worker firewall || true
     else
         supervisor_request firewall remove
         supervisor_run_worker firewall || true
     fi
-    if [ ! -f "$AGH_STATE_DIR/paused" ] && supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf"; then
-        supervisor_run_worker proxy || true
+    if supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf"; then
+        if [ -f "$AGH_STATE_DIR/paused" ]; then
+            printf 'state=paused\nreason=module_paused\n' > "$AGH_STATE_DIR/proxy.state"
+        elif [ "$supervisor_core_state" = ready ]; then
+            supervisor_run_worker proxy || true
+        else
+            printf 'state=blocked\nreason=core_not_ready\n' > "$AGH_STATE_DIR/proxy.state"
+        fi
+        chmod 0600 "$AGH_STATE_DIR/proxy.state"
     fi
-    if [ ! -f "$AGH_STATE_DIR/paused" ] && supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf"; then
-        supervisor_run_worker file || true
+    if supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf"; then
+        if [ -f "$AGH_STATE_DIR/paused" ]; then
+            printf 'state=paused\nreason=module_paused\n' > "$AGH_STATE_DIR/file.state"
+            chmod 0600 "$AGH_STATE_DIR/file.state"
+        else
+            supervisor_run_worker file || true
+        fi
     fi
     supervisor_aggregate
 }

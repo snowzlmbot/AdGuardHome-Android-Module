@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4
+
+- Fixed the real first-run failure: initialize AdGuard Home from a missing config through the official install API instead of calling the unavailable install API on `users: []`.
+- Wait up to 30 seconds for Web and DNS listeners and preserve precise failure reasons.
+- Added a native AdGuard Home integration test that verifies the generated full YAML, bcrypt password hash, Web listener, and DNS listener.
+- Discover network state independently when the core fails; block proxy adaptation until the core is ready.
+- Added bilingual Chinese/English installation prompts, module status, WebUI text, state labels, error reasons, and action feedback with persisted automatic language detection.
+- Disable the dashboard button until the core is actually ready.
+
 ## 0.1.3
 
 - Preserve existing mode, feature toggles, ports, and credentials when upgrading older data without an install-options marker.

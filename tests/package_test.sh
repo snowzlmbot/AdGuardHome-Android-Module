@@ -9,7 +9,7 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 mkdir -p "$fixture/out"
 (
     cd "$fixture"
-    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.3 0.107.79 out > "$fixture/result"
+    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.4 0.107.79 out > "$fixture/result"
 )
 package=$(sed -n '1p' "$fixture/result")
 [ -f "$package" ] || fail 'package was not created'
@@ -55,7 +55,7 @@ sh "$fixture/run-installer.sh" || fail 'customize.sh installation simulation fai
 for installed_file in service.sh action.sh boot-completed.sh uninstall.sh webroot/index.html scripts/lifecycle/supervisor.sh; do
     [ -f "$install_root/$installed_file" ] || fail "installed module missing $installed_file"
 done
-for runtime_file in config/AdGuardHome.yaml config/mode.conf config/proxy-adapter.conf config/file-adapter.conf state/credentials.conf state/ports.conf; do
+for runtime_file in config/AdGuardHome.yaml config/mode.conf config/proxy-adapter.conf config/file-adapter.conf state/credentials.conf state/ports.conf state/language.conf; do
     [ -f "$data_root/$runtime_file" ] || fail "persistent data missing $runtime_file"
 done
 grep -F 'mode=2' "$data_root/config/mode.conf" >/dev/null || fail 'installation mode choice missing'

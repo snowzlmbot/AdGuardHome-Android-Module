@@ -2,171 +2,222 @@ const MODULE_ROOT = '/data/adb/modules/AdGuardHome';
 const CONTROL = `${MODULE_ROOT}/scripts/lifecycle/control.sh`;
 const DIAGNOSTICS = `${MODULE_ROOT}/scripts/diagnostics/diagnostics.sh`;
 
-const labels = {
-  running: ['运行中', 'DNS 核心与防火墙规则均已就绪'],
-  paused: ['已暂停', '核心保留运行，DNS 重定向已撤销'],
-  stopped: ['已停止', '点击启动以恢复服务'],
-  degraded: ['部分可用', '核心运行中，但部分组件未就绪'],
-  failed: ['异常', '请查看组件状态或运行诊断'],
-  unknown: ['正在检测', '等待 KernelSU 返回状态'],
+const messages = {
+  zh: {
+    'title.local': '本地 DNS', 'title.console': '控制台',
+    'status.current': '当前状态', 'status.loading': '正在读取…', 'status.waiting': '等待 KernelSU 返回状态',
+    'section.runtime': '运行控制', 'section.engine': '过滤引擎', 'section.dnsRoute': 'DNS 路由', 'section.mode': '工作模式',
+    'section.dashboardEntry': '管理入口', 'section.optional': '可选功能', 'section.adapters': '独立适配器',
+    'hint.autoRefresh': '操作后自动刷新', 'hint.isolation': '故障不会停止 DNS 核心',
+    'action.start': '▶ 启动', 'action.pause': 'Ⅱ 暂停', 'action.resume': '↗ 恢复', 'action.restart': '↻ 重启核心',
+    'action.openDashboard': '打开管理界面', 'action.credentials': '查看登录凭据', 'action.refresh': '刷新状态', 'action.close': '关闭',
+    'mode.unknown': '未知', 'mode.1': '内网兼容', 'mode.1help': '校园网 / 企业域名', 'mode.2': '纯加密', 'mode.3help': '域名上游引导',
+    'dashboard.waiting': '等待核心启动…', 'adapter.proxy': '代理配置适配', 'adapter.file': '文件级去广告',
+    'adapter.fileWarning': '高风险 · 默认关闭', 'adapter.proxyToggle': '切换代理适配', 'adapter.fileToggle': '切换文件适配',
+    'footer.refresh': '状态每 5 秒自动刷新', 'credential.title': '管理登录信息', 'credential.username': '用户名',
+    'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。',
+    'toggle.on': '开启', 'toggle.off': '关闭',
+    'overall.running': '运行中', 'overall.paused': '已暂停', 'overall.stopped': '已停止', 'overall.degraded': '部分功能异常', 'overall.failed': '启动失败',
+    'summary.running': 'DNS 核心与过滤规则已生效', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
+    'summary.stopped': '模块已停止；点击启动恢复', 'summary.degraded': '核心已运行，但部分组件未生效',
+    'summary.failed': 'AdGuard Home 核心未启动',
+    'toast.done': '操作已提交', 'toast.mode': '模式已保存', 'toast.modePending': '模式已保存，核心恢复后生效',
+    'toast.failed': '操作失败', 'toast.refreshed': '状态已刷新', 'toast.unavailable': 'AdGuard Home 尚未启动',
+    'toast.bridge': '请在 KernelSU 模块 WebUI 中打开', 'toast.credentials': '凭据读取失败',
+    'status.ready': '正常', 'status.running': '运行中', 'status.failed': '失败', 'status.degraded': '异常', 'status.removed': '已撤销',
+    'status.unknown': '未知', 'status.disabled': '已关闭', 'status.blocked': '等待核心', 'status.paused': '已暂停', 'status.stopped': '已停止',
+    'reason.missing_binary': '核心文件缺失，请重新刷入模块', 'reason.missing_config': '配置文件缺失', 'reason.invalid_config': '配置文件无效',
+    'reason.invalid_ports': '端口配置无效', 'reason.runtime_config': '无法更新运行配置', 'reason.web_port_timeout': 'Web 服务启动超时',
+    'reason.initial_configuration': '首次初始化失败', 'reason.dns_port_timeout': 'DNS 服务启动超时', 'reason.core_not_ready': '等待核心启动',
+    'reason.discovery_failed': '无法读取 Android 网络状态', 'reason.no_network': '当前没有可用网络', 'reason.invalid_mode': 'DNS 模式无效',
+    'reason.module_paused': '模块已暂停', 'reason.ready': '运行正常', 'reason.unknown': '请查看诊断状态'
+  },
+  en: {
+    'title.local': 'LOCAL DNS', 'title.console': 'CONTROL',
+    'status.current': 'CURRENT STATUS', 'status.loading': 'Loading…', 'status.waiting': 'Waiting for KernelSU status',
+    'section.runtime': 'RUNTIME CONTROL', 'section.engine': 'Filtering engine', 'section.dnsRoute': 'DNS ROUTING', 'section.mode': 'Working mode',
+    'section.dashboardEntry': 'DASHBOARD', 'section.optional': 'OPTIONAL FEATURES', 'section.adapters': 'Isolated adapters',
+    'hint.autoRefresh': 'Refreshes after actions', 'hint.isolation': 'Adapter failures do not stop DNS',
+    'action.start': '▶ Start', 'action.pause': 'Ⅱ Pause', 'action.resume': '↗ Resume', 'action.restart': '↻ Restart core',
+    'action.openDashboard': 'Open dashboard', 'action.credentials': 'Show credentials', 'action.refresh': 'Refresh status', 'action.close': 'Close',
+    'mode.unknown': 'Unknown', 'mode.1': 'LAN compatible', 'mode.1help': 'Campus / enterprise domains', 'mode.2': 'Encrypted', 'mode.3help': 'Domain upstream bootstrap',
+    'dashboard.waiting': 'Waiting for the core…', 'adapter.proxy': 'Proxy configuration adapter', 'adapter.file': 'File-level ad cleanup',
+    'adapter.fileWarning': 'HIGH RISK · OFF BY DEFAULT', 'adapter.proxyToggle': 'Toggle proxy adapter', 'adapter.fileToggle': 'Toggle file adapter',
+    'footer.refresh': 'Status refreshes every 5 seconds', 'credential.title': 'Dashboard credentials', 'credential.username': 'Username',
+    'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.',
+    'toggle.on': 'ON', 'toggle.off': 'OFF',
+    'overall.running': 'Running', 'overall.paused': 'Paused', 'overall.stopped': 'Stopped', 'overall.degraded': 'Partially degraded', 'overall.failed': 'Startup failed',
+    'summary.running': 'DNS core and filtering rules are active', 'summary.paused': 'Core is running; DNS redirects are removed',
+    'summary.stopped': 'The module is stopped; press Start to recover', 'summary.degraded': 'Core is running, but a component is inactive',
+    'summary.failed': 'AdGuard Home core is not running',
+    'toast.done': 'Action submitted', 'toast.mode': 'Mode saved', 'toast.modePending': 'Mode saved; it will apply after core recovery',
+    'toast.failed': 'Action failed', 'toast.refreshed': 'Status refreshed', 'toast.unavailable': 'AdGuard Home is not running',
+    'toast.bridge': 'Open this page inside KernelSU module WebUI', 'toast.credentials': 'Failed to read credentials',
+    'status.ready': 'Ready', 'status.running': 'Running', 'status.failed': 'Failed', 'status.degraded': 'Degraded', 'status.removed': 'Removed',
+    'status.unknown': 'Unknown', 'status.disabled': 'Disabled', 'status.blocked': 'Waiting for core', 'status.paused': 'Paused', 'status.stopped': 'Stopped',
+    'reason.missing_binary': 'Core binary is missing; reinstall the module', 'reason.missing_config': 'Configuration file is missing', 'reason.invalid_config': 'Configuration is invalid',
+    'reason.invalid_ports': 'Port configuration is invalid', 'reason.runtime_config': 'Failed to update runtime configuration', 'reason.web_port_timeout': 'Web service startup timed out',
+    'reason.initial_configuration': 'First-run configuration failed', 'reason.dns_port_timeout': 'DNS service startup timed out', 'reason.core_not_ready': 'Waiting for the core',
+    'reason.discovery_failed': 'Unable to read Android network state', 'reason.no_network': 'No active network', 'reason.invalid_mode': 'Invalid DNS mode',
+    'reason.module_paused': 'Module is paused', 'reason.ready': 'Running normally', 'reason.unknown': 'Check diagnostics for details'
+  }
 };
 
 let current = {};
-let busy = false;
-let toastTimer;
+let lockedLanguage = localStorage.getItem('agh-language');
+let language = lockedLanguage || (/^zh/i.test(navigator.language || '') ? 'zh' : 'en');
+const $ = (id) => document.getElementById(id);
+const text = (key) => messages[language]?.[key] || messages.en[key] || key;
 
-function execRoot(command) {
+function applyLanguage() {
+  document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = text(node.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria]').forEach((node) => { node.setAttribute('aria-label', text(node.dataset.i18nAria)); });
+  document.title = language === 'zh' ? 'AdGuard Home 控制台' : 'AdGuard Home Control';
+}
+
+function exec(command) {
   return new Promise((resolve, reject) => {
-    if (!window.ksu || typeof window.ksu.exec !== 'function') {
-      reject(new Error('请从 KernelSU 管理器打开模块 WebUI'));
-      return;
-    }
-    const callback = `agh_callback_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    if (!window.ksu?.exec) return reject(new Error('KSU_BRIDGE_UNAVAILABLE'));
+    const callback = `agh_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     window[callback] = (errno, stdout, stderr) => {
       delete window[callback];
-      resolve({ errno, stdout: stdout || '', stderr: stderr || '' });
+      resolve({ errno: Number(errno), stdout: stdout || '', stderr: stderr || '' });
     };
-    try {
-      window.ksu.exec(command, '{}', callback);
-    } catch (error) {
-      delete window[callback];
-      reject(error);
-    }
+    try { window.ksu.exec(command, '{}', callback); }
+    catch (error) { delete window[callback]; reject(error); }
   });
 }
 
-function parseKv(text) {
-  const result = {};
-  text.split(/\r?\n/).forEach((line) => {
+function parseKeyValues(raw) {
+  return Object.fromEntries(raw.split(/\r?\n/).filter(Boolean).map((line) => {
     const index = line.indexOf('=');
-    if (index > 0) result[line.slice(0, index)] = line.slice(index + 1);
-  });
-  return result;
+    return index < 0 ? [line, ''] : [line.slice(0, index), line.slice(index + 1)];
+  }));
 }
 
-function setText(id, value) {
-  const node = document.getElementById(id);
-  if (node) node.textContent = value ?? '—';
-}
+function localizedStatus(value) { return text(`status.${value || 'unknown'}`); }
+function localizedReason(reason) { return text(`reason.${reason || 'unknown'}`); }
 
-function showToast(message, isError = false) {
-  const node = document.getElementById('toast');
+function showToast(message) {
+  const node = $('toast');
   node.textContent = message;
-  node.style.borderColor = isError ? 'rgba(255,107,107,.55)' : 'rgba(150,255,115,.45)';
   node.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => node.classList.remove('show'), 2600);
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => node.classList.remove('show'), 2400);
 }
 
-function setToggle(id, enabled) {
-  const button = document.getElementById(id);
-  button.classList.toggle('active', enabled);
-  button.setAttribute('aria-pressed', String(enabled));
-  button.textContent = enabled ? '开启' : '关闭';
+function setBusy(busy) {
+  document.querySelectorAll('button').forEach((button) => { button.disabled = busy; });
+  document.body.classList.toggle('busy', busy);
 }
 
-function render(state) {
+function applyStatus(state) {
   current = state;
-  const status = state.status || 'unknown';
-  const [title, detail] = labels[status] || labels.unknown;
-  document.body.dataset.status = status;
-  setText('overall', title);
-  setText('statusReason', detail);
-  setText('modeNumber', state.mode || '—');
-  setText('modeName', state.mode_name || '未配置');
-  setText('core', state.core || 'unknown');
-  setText('firewall', state.firewall || 'unknown');
-  setText('network', state.network || 'unknown');
-  setText('proxy', state.proxy || (state.proxy_enabled === 'true' ? 'waiting' : 'disabled'));
-  setText('file_adapter', state.file_adapter || (state.file_enabled === 'true' ? 'waiting' : 'disabled'));
-  setText('webPort', state.web_port || '—');
-  setText('webUrl', state.web_url || '尚未分配');
-  document.getElementById('signal').className = `signal ${status}`;
-  document.querySelectorAll('[data-mode]').forEach((button) => {
-    button.classList.toggle('active', button.dataset.mode === state.mode);
+  if (!lockedLanguage && /^(zh|en)$/.test(state.language || '')) {
+    language = state.language;
+    localStorage.setItem('agh-language', language);
+    lockedLanguage = language;
+    applyLanguage();
+  }
+
+  const overall = state.status || 'failed';
+  $('overall').textContent = text(`overall.${overall}`);
+  const reasonKey = overall === 'failed' ? state.core_reason : overall === 'degraded' ? (state.firewall_reason || state.core_reason) : overall;
+  $('statusReason').textContent = text(`summary.${overall}`) || localizedReason(reasonKey);
+  if (overall === 'failed' || overall === 'degraded') $('statusReason').textContent = localizedReason(reasonKey);
+  $('signal').className = `signal ${overall}`;
+  $('modeNumber').textContent = state.mode || '—';
+  $('modeName').textContent = state.mode_name || text('mode.unknown');
+
+  ['core', 'firewall', 'network', 'proxy', 'file_adapter'].forEach((key) => {
+    const node = $(key);
+    const value = state[key] || 'unknown';
+    node.textContent = localizedStatus(value);
+    node.className = value;
   });
-  setToggle('proxyToggle', state.proxy_enabled === 'true');
-  setToggle('fileToggle', state.file_enabled === 'true');
+  $('webPort').textContent = state.core === 'ready' ? (state.web_port || '—') : '—';
+  $('webUrl').textContent = state.web_url === 'unavailable' ? text('dashboard.waiting') : (state.web_url || text('dashboard.waiting'));
+  $('openAdmin').disabled = state.web_url === 'unavailable' || !state.web_url;
+
+  document.querySelectorAll('[data-mode]').forEach((button) => button.classList.toggle('active', button.dataset.mode === state.mode));
+  updateToggle($('proxyToggle'), state.proxy_enabled === 'true');
+  updateToggle($('fileToggle'), state.file_enabled === 'true');
 }
 
-async function refresh({ silent = false } = {}) {
-  if (busy) return;
-  busy = true;
-  document.getElementById('refresh').classList.add('spinning');
+function updateToggle(button, enabled) {
+  button.classList.toggle('active', enabled);
+  button.textContent = text(enabled ? 'toggle.on' : 'toggle.off');
+  button.dataset.enabled = String(enabled);
+}
+
+async function refresh(silent = true) {
   try {
-    const result = await execRoot(`sh ${DIAGNOSTICS}`);
-    if (result.errno !== 0) throw new Error(result.stderr || '状态读取失败');
-    render(parseKv(result.stdout));
+    const result = await exec(`sh ${DIAGNOSTICS}`);
+    if (result.errno !== 0) throw new Error(result.stderr || 'diagnostics failed');
+    applyStatus(parseKeyValues(result.stdout));
+    if (!silent) showToast(text('toast.refreshed'));
   } catch (error) {
-    render({ status: 'unknown', mode_name: 'KernelSU WebUI 不可用' });
-    if (!silent) showToast(error.message, true);
-  } finally {
-    busy = false;
-    document.getElementById('refresh').classList.remove('spinning');
+    $('overall').textContent = text('overall.failed');
+    $('statusReason').textContent = error.message === 'KSU_BRIDGE_UNAVAILABLE' ? text('toast.bridge') : text('toast.failed');
+    $('signal').className = 'signal failed';
   }
 }
 
-async function runControl(action, successText) {
-  if (busy) return;
-  busy = true;
+async function runControl(action) {
+  const allowed = new Set(['start', 'pause', 'resume', 'restart-core', 'enable-proxy', 'disable-proxy', 'enable-file', 'disable-file']);
+  if (!allowed.has(action)) return;
+  setBusy(true);
   try {
-    const result = await execRoot(`sh ${CONTROL} ${action}`);
-    if (result.errno !== 0) throw new Error(result.stderr || `操作失败：${action}`);
-    showToast(successText);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-  } catch (error) {
-    showToast(error.message, true);
-  } finally {
-    busy = false;
-    await refresh({ silent: true });
-  }
+    const result = await exec(`sh ${CONTROL} ${action}`);
+    if (result.errno !== 0) throw new Error(result.stderr || action);
+    showToast(text('toast.done'));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await refresh();
+  } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }
+  finally { setBusy(false); }
 }
 
-async function openDashboard() {
-  if (!current.web_url || current.web_url === 'unavailable') {
-    showToast('管理端口尚未就绪', true);
-    return;
-  }
-  const result = await execRoot(`am start -a android.intent.action.VIEW -d ${current.web_url}`);
-  if (result.errno !== 0) showToast('无法打开浏览器', true);
+async function setMode(mode) {
+  if (!['1', '2', '3'].includes(mode)) return;
+  setBusy(true);
+  try {
+    const result = await exec(`sh ${CONTROL} set-mode ${mode}`);
+    if (result.errno !== 0) throw new Error(result.stderr || 'set-mode');
+    showToast(text(current.core === 'ready' ? 'toast.mode' : 'toast.modePending'));
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await refresh();
+  } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }
+  finally { setBusy(false); }
 }
 
 async function showCredentials() {
-  const result = await execRoot("sed -n 's/^username=//p;s/^password=//p' /data/adb/agh/state/credentials.conf");
-  if (result.errno !== 0) {
-    showToast('凭据尚未生成', true);
-    return;
-  }
-  const lines = result.stdout.trim().split(/\r?\n/);
-  setText('credentialUser', lines[0] || 'admin');
-  setText('credentialPassword', lines[1] || '不可用');
-  document.getElementById('credentialDialog').showModal();
+  try {
+    const result = await exec("sed -n 's/^username=//p;s/^password=//p' /data/adb/agh/state/credentials.conf");
+    if (result.errno !== 0) throw new Error(result.stderr || 'credentials');
+    const lines = result.stdout.trim().split(/\r?\n/);
+    $('credentialUser').textContent = lines[0] || 'admin';
+    $('credentialPassword').textContent = lines[1] || '—';
+    const dialog = $('credentialDialog');
+    if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', '');
+  } catch { showToast(text('toast.credentials')); }
 }
 
-document.getElementById('refresh').addEventListener('click', () => refresh());
-document.querySelectorAll('[data-command]').forEach((button) => {
-  const messages = {
-    start: '启动请求已提交',
-    pause: '过滤已暂停',
-    resume: '过滤恢复请求已提交',
-    'restart-core': '核心正在重启',
-  };
-  button.addEventListener('click', () => runControl(button.dataset.command, messages[button.dataset.command] || '操作已提交'));
-});
-document.querySelectorAll('[data-mode]').forEach((button) => {
-  button.addEventListener('click', () => runControl(`set-mode ${button.dataset.mode}`, `已切换到模式 ${button.dataset.mode}`));
-});
-document.getElementById('openAdmin').addEventListener('click', openDashboard);
-document.getElementById('showCredentials').addEventListener('click', showCredentials);
-document.getElementById('closeDialog').addEventListener('click', () => document.getElementById('credentialDialog').close());
-document.getElementById('proxyToggle').addEventListener('click', () => {
-  const enabled = current.proxy_enabled === 'true';
-  runControl(enabled ? 'disable-proxy' : 'enable-proxy', enabled ? '代理适配已关闭' : '代理适配已开启');
-});
-document.getElementById('fileToggle').addEventListener('click', () => {
-  const enabled = current.file_enabled === 'true';
-  runControl(enabled ? 'disable-file' : 'enable-file', enabled ? '文件适配已关闭' : '文件适配已开启');
-});
+async function openDashboard() {
+  if (!current.web_url || current.web_url === 'unavailable') return showToast(text('toast.unavailable'));
+  const result = await exec(`am start -a android.intent.action.VIEW -d ${current.web_url}`);
+  if (result.errno !== 0) showToast(text('toast.unavailable'));
+}
 
-refresh({ silent: true });
-setInterval(() => refresh({ silent: true }), 5000);
+applyLanguage();
+document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => runControl(button.dataset.command)));
+document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
+$('refresh').addEventListener('click', () => refresh(false));
+$('openAdmin').addEventListener('click', openDashboard);
+$('showCredentials').addEventListener('click', showCredentials);
+$('closeDialog').addEventListener('click', () => $('credentialDialog').close ? $('credentialDialog').close() : $('credentialDialog').removeAttribute('open'));
+$('proxyToggle').addEventListener('click', () => runControl($('proxyToggle').dataset.enabled === 'true' ? 'disable-proxy' : 'enable-proxy'));
+$('fileToggle').addEventListener('click', () => runControl($('fileToggle').dataset.enabled === 'true' ? 'disable-file' : 'enable-file'));
+
+refresh(false);
+setInterval(() => refresh(true), 5000);

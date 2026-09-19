@@ -24,6 +24,7 @@ core_state_write() {
         printf 'dns_port=%s\n' "${PORT_DNS:-}"
         printf 'firewall_authorized=%s\n' "${CORE_FIREWALL_AUTHORIZED:-0}"
         printf 'reason=%s\n' "$core_state_reason"
+        printf 'retry_in=%s\n' "${CORE_RETRY_IN:-0}"
     } > "$core_state_tmp" || return 1
     chmod 0600 "$core_state_tmp"
     sync
@@ -44,6 +45,20 @@ core_probe_port() {
         netstat -lnt 2>/dev/null | grep -Eq "([.:])${core_probe_port_value}[[:space:]]"
         return $?
     fi
+    core_probe_hex=$(printf '%04X' "$core_probe_port_value" 2>/dev/null) || return 1
+    grep -qi ":${core_probe_hex}[[:space:]]" /proc/net/tcp /proc/net/tcp6 2>/dev/null
+}
+
+core_wait_for_port() {
+    core_wait_port=$1
+    core_wait_seconds=${2:-30}
+    core_wait_count=0
+    while [ "$core_wait_count" -lt "$core_wait_seconds" ]; do
+        core_pid_is_ours || return 2
+        core_probe_port "$core_wait_port" && return 0
+        sleep 1
+        core_wait_count=$((core_wait_count + 1))
+    done
     return 1
 }
 
@@ -59,12 +74,19 @@ core_prepare_runtime_config() {
     CORE_RUNTIME_CONFIG=$core_runtime_config
 }
 
-core_initialize_auth() {
-    [ "${CORE_TEST_MODE:-0}" = 1 ] && return 0
-    grep -q '^users:[[:space:]]*\[\][[:space:]]*$' "$AGH_CONFIG_DIR/AdGuardHome.yaml" || return 0
+core_needs_initial_setup() {
+    [ ! -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ] && return 0
+    grep -q '^users:[[:space:]]*\[\][[:space:]]*$' "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+}
+
+core_apply_initial_config() {
     core_username=$(credential_value username)
     core_password=$(credential_value password)
     [ -n "$core_username" ] && [ -n "$core_password" ] || return 1
+    if [ -n "${CORE_INSTALL_CMD:-}" ]; then
+        "$CORE_INSTALL_CMD" "$PORT_WEB" "$PORT_DNS" "$core_username" "$core_password" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+        return $?
+    fi
     core_auth_json=$(printf '{"web":{"ip":"127.0.0.1","port":%s},"dns":{"ip":"127.0.0.1","port":%s},"username":"%s","password":"%s"}' "$PORT_WEB" "$PORT_DNS" "$core_username" "$core_password")
     if command -v curl >/dev/null 2>&1; then
         printf '%s' "$core_auth_json" | curl -fsS --max-time 15 -H 'Content-Type: application/json' -X POST --data-binary @- "http://127.0.0.1:$PORT_WEB/control/install/configure" >/dev/null 2>&1
@@ -73,6 +95,26 @@ core_initialize_auth() {
     else
         return 1
     fi
+}
+
+core_restore_initial_template() {
+    core_initial_backup="$AGH_BACKUP_DIR/pre-initial-setup.yaml"
+    [ -f "$core_initial_backup" ] || return 0
+    if [ ! -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ] || grep -q '^users:[[:space:]]*\[\][[:space:]]*$' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then
+        atomic_copy "$core_initial_backup" "$AGH_CONFIG_DIR/AdGuardHome.yaml" || return 1
+    fi
+}
+
+core_start_process() {
+    core_log="$AGH_LOG_DIR/core-process.log"
+    if [ "${CORE_INITIAL_SETUP:-0}" = 1 ]; then
+        "$CORE_BINARY" --config "$AGH_CONFIG_DIR/AdGuardHome.yaml" --work-dir "$AGH_DATA_DIR" --web-addr "127.0.0.1:$PORT_WEB" --no-check-update >"$core_log" 2>&1 &
+    else
+        "$CORE_BINARY" --config "$CORE_RUNTIME_CONFIG" --work-dir "$AGH_DATA_DIR" --no-check-update >"$core_log" 2>&1 &
+    fi
+    CORE_PID=$!
+    printf '%s\n' "$CORE_PID" > "$AGH_RUN_DIR/core.pid"
+    chmod 0600 "$AGH_RUN_DIR/core.pid"
 }
 
 core_pid_is_ours() {
@@ -104,22 +146,39 @@ core_start() {
     [ -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ] || { core_state_write failed missing_config; return 1; }
     validate_agh_yaml "$AGH_CONFIG_DIR/AdGuardHome.yaml" || { core_state_write failed invalid_config; return 1; }
     load_or_allocate_ports "$AGH_STATE_DIR/ports.conf" || { core_state_write failed invalid_ports; return 1; }
-    core_prepare_runtime_config || { core_state_write failed runtime_config; return 1; }
+    CORE_INITIAL_SETUP=0
+    if core_needs_initial_setup; then
+        CORE_INITIAL_SETUP=1
+        cp -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$AGH_BACKUP_DIR/pre-initial-setup.yaml" || { core_state_write failed config_backup; return 1; }
+        rm -f "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+    else
+        core_prepare_runtime_config || { core_state_write failed runtime_config; return 1; }
+    fi
     export SSL_CERT_DIR=${SSL_CERT_DIR:-/system/etc/security/cacerts/}
-    "$CORE_BINARY" --config "$CORE_RUNTIME_CONFIG" --work-dir "$AGH_DATA_DIR" --no-check-update >"$AGH_LOG_DIR/core-process.log" 2>&1 &
-    CORE_PID=$!
+    core_start_process
     CORE_FIREWALL_AUTHORIZED=0
-    printf '%s\n' "$CORE_PID" > "$AGH_RUN_DIR/core.pid"
-    chmod 0600 "$AGH_RUN_DIR/core.pid"
-    sleep "${CORE_START_WAIT:-1}"
-    if ! core_pid_is_ours || ! core_probe_port "$PORT_WEB" || ! core_probe_port "$PORT_DNS"; then
+    if ! core_wait_for_port "$PORT_WEB" "${CORE_START_WAIT:-30}"; then
         core_stop
-        core_state_write failed health_probe
+        [ "$CORE_INITIAL_SETUP" = 1 ] && core_restore_initial_template || true
+        core_state_write failed web_port_timeout
         return 1
     fi
-    if ! core_initialize_auth; then
+    if [ "$CORE_INITIAL_SETUP" = 1 ]; then
+        if ! core_apply_initial_config; then
+            core_stop
+            core_restore_initial_template || true
+            core_state_write failed initial_configuration
+            return 1
+        fi
+        if ! core_wait_for_port "$PORT_DNS" "${CORE_DNS_WAIT:-30}"; then
+            core_stop
+            core_restore_initial_template || true
+            core_state_write failed dns_port_timeout
+            return 1
+        fi
+    elif ! core_wait_for_port "$PORT_DNS" "${CORE_DNS_WAIT:-30}"; then
         core_stop
-        core_state_write failed credential_initialization
+        core_state_write failed dns_port_timeout
         return 1
     fi
     CORE_FIREWALL_AUTHORIZED=1
@@ -152,7 +211,10 @@ core_daemon() {
             core_delay=1
             sleep 5
         else
-            core_state_write degraded "retry_in_${core_delay}s" || true
+            core_failure_reason=$(sed -n 's/^reason=//p' "$AGH_STATE_DIR/core.state" 2>/dev/null | sed -n '1p')
+            [ -n "$core_failure_reason" ] || core_failure_reason=unknown_failure
+            CORE_RETRY_IN=$core_delay
+            core_state_write failed "$core_failure_reason" || true
             sleep "$core_delay"
             [ "$core_delay" -lt 60 ] && core_delay=$((core_delay * 2))
             [ "$core_delay" -gt 60 ] && core_delay=60

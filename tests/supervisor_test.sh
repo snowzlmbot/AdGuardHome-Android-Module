@@ -17,6 +17,7 @@ export SUPERVISOR_WORKER_DIR="$fixture/workers"
 export MODULE_PROP_FILE="$fixture/module.prop"
 mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$SUPERVISOR_WORKER_DIR"
 printf 'description=initial\n' > "$MODULE_PROP_FILE"
+printf 'language=zh\n' > "$AGH_STATE_DIR/language.conf"
 
 cat > "$SUPERVISOR_WORKER_DIR/core-worker.sh" <<'EOF'
 #!/bin/sh
@@ -27,6 +28,10 @@ cat > "$SUPERVISOR_WORKER_DIR/firewall-worker.sh" <<'EOF'
 #!/bin/sh
 printf 'state=%s\n' "${FAKE_FIREWALL_STATE:-ready}" > "$AGH_STATE_DIR/firewall.state"
 [ "${FAKE_FIREWALL_STATE:-ready}" = failed ] && exit 1
+EOF
+cat > "$SUPERVISOR_WORKER_DIR/network-worker.sh" <<'EOF'
+#!/bin/sh
+printf 'state=ready\nmode=2\nnetwork=wifi\nvpn=false\n' > "$AGH_STATE_DIR/network.state"
 EOF
 cat > "$SUPERVISOR_WORKER_DIR/proxy-worker.sh" <<'EOF'
 #!/bin/sh
@@ -58,8 +63,8 @@ touch "$AGH_STATE_DIR/paused"
 export FAKE_CORE_STATE=ready
 sh "$ROOT/scripts/lifecycle/supervisor.sh" once || true
 [ -f "$AGH_RUN_DIR/firewall/request" ] || fail 'pause did not request firewall removal'
-[ ! -f "$AGH_STATE_DIR/proxy.state" ] || fail 'proxy worker ran while paused'
-[ ! -f "$AGH_STATE_DIR/file.state" ] || fail 'file worker ran while paused'
+grep -F 'state=paused' "$AGH_STATE_DIR/proxy.state" >/dev/null || fail 'proxy pause state missing'
+grep -F 'state=paused' "$AGH_STATE_DIR/file.state" >/dev/null || fail 'file pause state missing'
 grep -F '已暂停' "$MODULE_PROP_FILE" >/dev/null || fail 'paused module description missing'
 rm -f "$AGH_STATE_DIR/paused" "$AGH_RUN_DIR/firewall/request"
 
