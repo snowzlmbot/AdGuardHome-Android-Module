@@ -17,7 +17,7 @@ jobs:
       - name: Run fixture tests
         shell: sh
         run: |
-          chmod +x tests/*.sh tests/static/check-shell.sh tests/fixtures/iptables-recording-bin/*
+          chmod +x tests/*.sh tests/static/check-shell.sh tests/fixtures/iptables-recording-bin/* tests/fixtures/android-network-bin/*
           sh tests/platform_test.sh
           sh tests/credentials_test.sh
           sh tests/migration_test.sh

@@ -53,4 +53,19 @@ dns4=not-an-ip' || true
 grep -F 'state=degraded' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'invalid snapshot accepted'
 grep -F 'network=ethernet' "$AGH_STATE_DIR/network.lastgood" >/dev/null || fail 'last known good state not retained'
 
+mock_path="$ROOT/tests/fixtures/android-network-bin:$PATH"
+MOCK_NET=wifi PATH="$mock_path" sh "$ROOT/scripts/network/network-worker.sh" once || fail 'modern Wi-Fi discovery failed'
+grep -F 'network=wifi' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'modern Wi-Fi not detected'
+grep -F 'interface=wlan0' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'Wi-Fi interface missing'
+grep -F 'dns4=192.0.2.53' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'Wi-Fi DNS not parsed'
+
+MOCK_NET=mobile PATH="$mock_path" sh "$ROOT/scripts/network/network-worker.sh" once || fail 'mobile data discovery failed'
+grep -F 'network=mobile' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'mobile data not detected'
+grep -F 'interface=rmnet_data0' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'mobile interface missing'
+grep -F 'vpn=true' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'VPN transport not detected'
+
+MOCK_NET=hidden PATH="$mock_path" sh "$ROOT/scripts/network/network-worker.sh" once || fail 'hidden-DNS network should remain usable'
+grep -F 'state=ready' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'hidden-DNS network marked failed'
+grep -F 'reason=dns_not_exposed' "$AGH_STATE_DIR/network.state" >/dev/null || fail 'hidden-DNS reason missing'
+
 printf '%s\n' 'network tests passed'

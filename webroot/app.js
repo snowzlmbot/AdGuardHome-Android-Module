@@ -8,6 +8,7 @@ const messages = {
     'status.current': '当前状态', 'status.loading': '正在读取…', 'status.waiting': '等待 KernelSU 返回状态',
     'section.runtime': '运行控制', 'section.engine': '过滤引擎', 'section.dnsRoute': 'DNS 路由', 'section.mode': '工作模式',
     'section.dashboardEntry': '管理入口', 'section.optional': '可选功能', 'section.adapters': '独立适配器',
+    'component.file': '文件', 'component.filter': '规则',
     'hint.autoRefresh': '操作后自动刷新', 'hint.isolation': '故障不会停止 DNS 核心',
     'action.start': '▶ 启动', 'action.pause': 'Ⅱ 暂停', 'action.resume': '↗ 恢复', 'action.restart': '↻ 重启核心',
     'action.openDashboard': '打开管理界面', 'action.credentials': '查看登录凭据', 'action.refresh': '刷新状态', 'action.close': '关闭',
@@ -18,25 +19,28 @@ const messages = {
     'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。',
     'toggle.on': '开启', 'toggle.off': '关闭',
     'overall.running': '运行中', 'overall.paused': '已暂停', 'overall.stopped': '已停止', 'overall.degraded': '部分功能异常', 'overall.failed': '启动失败',
-    'summary.running': 'DNS 核心与过滤规则已生效', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
+    'summary.running': 'DNS 核心与过滤规则已生效', 'summary.filtersLoading': 'DNS 核心已运行，过滤规则仍在加载', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
     'summary.stopped': '模块已停止；点击启动恢复', 'summary.degraded': '核心已运行，但部分组件未生效',
     'summary.failed': 'AdGuard Home 核心未启动',
     'toast.done': '操作已提交', 'toast.mode': '模式已保存', 'toast.modePending': '模式已保存，核心恢复后生效',
     'toast.failed': '操作失败', 'toast.refreshed': '状态已刷新', 'toast.unavailable': 'AdGuard Home 尚未启动',
     'toast.bridge': '请在 KernelSU 模块 WebUI 中打开', 'toast.credentials': '凭据读取失败',
     'status.ready': '正常', 'status.running': '运行中', 'status.failed': '失败', 'status.degraded': '异常', 'status.removed': '已撤销',
-    'status.unknown': '未知', 'status.disabled': '已关闭', 'status.blocked': '等待核心', 'status.paused': '已暂停', 'status.stopped': '已停止',
+    'status.unknown': '未知', 'status.disabled': '已关闭', 'status.blocked': '等待核心', 'status.paused': '已暂停', 'status.stopped': '已停止', 'status.loading': '加载中', 'status.unavailable': '不可用',
     'reason.missing_binary': '核心文件缺失，请重新刷入模块', 'reason.missing_config': '配置文件缺失', 'reason.invalid_config': '配置文件无效',
     'reason.invalid_ports': '端口配置无效', 'reason.runtime_config': '无法更新运行配置', 'reason.web_port_timeout': 'Web 服务启动超时',
     'reason.initial_configuration': '首次初始化失败', 'reason.dns_port_timeout': 'DNS 服务启动超时', 'reason.core_not_ready': '等待核心启动',
     'reason.discovery_failed': '无法读取 Android 网络状态', 'reason.no_network': '当前没有可用网络', 'reason.invalid_mode': 'DNS 模式无效',
-    'reason.module_paused': '模块已暂停', 'reason.ready': '运行正常', 'reason.unknown': '请查看诊断状态'
+    'reason.module_paused': '模块已暂停', 'reason.ready': '运行正常', 'reason.dns_not_exposed': '系统未公开 DNS 地址，但网络可用',
+    'reason.mode_configuration': 'DNS 模式配置失败', 'reason.mode_restart_timeout': '模式切换后核心重启超时', 'reason.unknown': '请查看诊断状态'
+    , 'network.wifi': 'Wi‑Fi', 'network.mobile': '移动数据', 'network.ethernet': '以太网', 'network.other': '其他网络', 'network.vpn': 'VPN'
   },
   en: {
     'title.local': 'LOCAL DNS', 'title.console': 'CONTROL',
     'status.current': 'CURRENT STATUS', 'status.loading': 'Loading…', 'status.waiting': 'Waiting for KernelSU status',
     'section.runtime': 'RUNTIME CONTROL', 'section.engine': 'Filtering engine', 'section.dnsRoute': 'DNS ROUTING', 'section.mode': 'Working mode',
     'section.dashboardEntry': 'DASHBOARD', 'section.optional': 'OPTIONAL FEATURES', 'section.adapters': 'Isolated adapters',
+    'component.file': 'FILE', 'component.filter': 'FILTERS',
     'hint.autoRefresh': 'Refreshes after actions', 'hint.isolation': 'Adapter failures do not stop DNS',
     'action.start': '▶ Start', 'action.pause': 'Ⅱ Pause', 'action.resume': '↗ Resume', 'action.restart': '↻ Restart core',
     'action.openDashboard': 'Open dashboard', 'action.credentials': 'Show credentials', 'action.refresh': 'Refresh status', 'action.close': 'Close',
@@ -47,19 +51,21 @@ const messages = {
     'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.',
     'toggle.on': 'ON', 'toggle.off': 'OFF',
     'overall.running': 'Running', 'overall.paused': 'Paused', 'overall.stopped': 'Stopped', 'overall.degraded': 'Partially degraded', 'overall.failed': 'Startup failed',
-    'summary.running': 'DNS core and filtering rules are active', 'summary.paused': 'Core is running; DNS redirects are removed',
+    'summary.running': 'DNS core and filtering rules are active', 'summary.filtersLoading': 'DNS core is running; filter lists are still loading', 'summary.paused': 'Core is running; DNS redirects are removed',
     'summary.stopped': 'The module is stopped; press Start to recover', 'summary.degraded': 'Core is running, but a component is inactive',
     'summary.failed': 'AdGuard Home core is not running',
     'toast.done': 'Action submitted', 'toast.mode': 'Mode saved', 'toast.modePending': 'Mode saved; it will apply after core recovery',
     'toast.failed': 'Action failed', 'toast.refreshed': 'Status refreshed', 'toast.unavailable': 'AdGuard Home is not running',
     'toast.bridge': 'Open this page inside KernelSU module WebUI', 'toast.credentials': 'Failed to read credentials',
     'status.ready': 'Ready', 'status.running': 'Running', 'status.failed': 'Failed', 'status.degraded': 'Degraded', 'status.removed': 'Removed',
-    'status.unknown': 'Unknown', 'status.disabled': 'Disabled', 'status.blocked': 'Waiting for core', 'status.paused': 'Paused', 'status.stopped': 'Stopped',
+    'status.unknown': 'Unknown', 'status.disabled': 'Disabled', 'status.blocked': 'Waiting for core', 'status.paused': 'Paused', 'status.stopped': 'Stopped', 'status.loading': 'Loading', 'status.unavailable': 'Unavailable',
     'reason.missing_binary': 'Core binary is missing; reinstall the module', 'reason.missing_config': 'Configuration file is missing', 'reason.invalid_config': 'Configuration is invalid',
     'reason.invalid_ports': 'Port configuration is invalid', 'reason.runtime_config': 'Failed to update runtime configuration', 'reason.web_port_timeout': 'Web service startup timed out',
     'reason.initial_configuration': 'First-run configuration failed', 'reason.dns_port_timeout': 'DNS service startup timed out', 'reason.core_not_ready': 'Waiting for the core',
     'reason.discovery_failed': 'Unable to read Android network state', 'reason.no_network': 'No active network', 'reason.invalid_mode': 'Invalid DNS mode',
-    'reason.module_paused': 'Module is paused', 'reason.ready': 'Running normally', 'reason.unknown': 'Check diagnostics for details'
+    'reason.module_paused': 'Module is paused', 'reason.ready': 'Running normally', 'reason.dns_not_exposed': 'Android did not expose DNS addresses, but the network is active',
+    'reason.mode_configuration': 'DNS mode configuration failed', 'reason.mode_restart_timeout': 'Core restart timed out after mode change', 'reason.unknown': 'Check diagnostics for details'
+    , 'network.wifi': 'Wi‑Fi', 'network.mobile': 'Mobile data', 'network.ethernet': 'Ethernet', 'network.other': 'Other network', 'network.vpn': 'VPN'
   }
 };
 
@@ -98,6 +104,10 @@ function parseKeyValues(raw) {
 
 function localizedStatus(value) { return text(`status.${value || 'unknown'}`); }
 function localizedReason(reason) { return text(`reason.${reason || 'unknown'}`); }
+function localizedNetwork(state) {
+  const base = text(`network.${state.network || 'other'}`);
+  return state.vpn === 'true' ? `${base} + ${text('network.vpn')}` : base;
+}
 
 function showToast(message) {
   const node = $('toast');
@@ -125,15 +135,16 @@ function applyStatus(state) {
   $('overall').textContent = text(`overall.${overall}`);
   const reasonKey = overall === 'failed' ? state.core_reason : overall === 'degraded' ? (state.firewall_reason || state.core_reason) : overall;
   $('statusReason').textContent = text(`summary.${overall}`) || localizedReason(reasonKey);
+  if (overall === 'running' && state.filters !== 'ready') $('statusReason').textContent = text('summary.filtersLoading');
   if (overall === 'failed' || overall === 'degraded') $('statusReason').textContent = localizedReason(reasonKey);
   $('signal').className = `signal ${overall}`;
   $('modeNumber').textContent = state.mode || '—';
   $('modeName').textContent = state.mode_name || text('mode.unknown');
 
-  ['core', 'firewall', 'network', 'proxy', 'file_adapter'].forEach((key) => {
+  ['core', 'firewall', 'network', 'proxy', 'file_adapter', 'filters'].forEach((key) => {
     const node = $(key);
     const value = state[key] || 'unknown';
-    node.textContent = localizedStatus(value);
+    node.textContent = key === 'network' && value !== 'unknown' ? `${localizedNetwork(state)} · ${localizedStatus(value)}` : localizedStatus(value);
     node.className = value;
   });
   $('webPort').textContent = state.core === 'ready' ? (state.web_port || '—') : '—';

@@ -31,6 +31,7 @@ mkdir -p "$AGH_ROOT/bin" "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH
 cp "$fixture/AdGuardHome/AdGuardHome" "$AGH_ROOT/bin/AdGuardHome"
 chmod 0755 "$AGH_ROOT/bin/AdGuardHome"
 cp "$ROOT/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
 . "$ROOT/scripts/lib/credentials.sh"
 ensure_credentials "$AGH_STATE_DIR/credentials.conf" || fail 'credential initialization failed'
 
@@ -41,6 +42,7 @@ CORE_START_WAIT=30 CORE_DNS_WAIT=30 sh "$ROOT/scripts/core/core-worker.sh" once 
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'native core not ready'
 if grep -q '^users:[[:space:]]*\[\]' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then fail 'users were not initialized'; fi
 grep -F 'password: $2' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'bcrypt password hash missing'
+grep -F 'https://1.12.12.12/dns-query' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'mode upstream policy was not applied'
 web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
 curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
 sh "$ROOT/scripts/core/core-worker.sh" stop || fail 'native core stop failed'

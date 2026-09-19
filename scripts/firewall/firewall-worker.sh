@@ -165,17 +165,17 @@ firewall_ensure() {
         firewall_insert_jump "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_jump; return 1; }
     fi
     if [ "$FW_DOT_BLOCK" = true ] || [ "$FW_V4_DOQ_BLOCK" = true ]; then
-        [ "$FW_DOT_BLOCK" = true ] && firewall_exec "$firewall_binary_v4" filter -A "$FW_V4_FILTER" -p tcp --dport 853 -j DROP
-        [ "$FW_DOT_BLOCK" = true ] && firewall_exec "$firewall_binary_v4" filter -A "$FW_V4_FILTER" -p udp --dport 853 -j DROP
-        [ "$FW_V4_DOQ_BLOCK" = true ] && firewall_exec "$firewall_binary_v4" filter -A "$FW_V4_FILTER" -p udp --dport 784 -j DROP
+        [ "$FW_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p tcp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v4_dot_tcp; return 1; }
+        [ "$FW_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p udp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v4_dot_udp; return 1; }
+        [ "$FW_V4_DOQ_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p udp --dport 784 -j DROP || { firewall_remove; firewall_state_write degraded v4_doq; return 1; }
         firewall_insert_jump "$firewall_binary_v4" filter "$FW_V4_FILTER" || { firewall_remove; firewall_state_write degraded v4_filter_jump; return 1; }
     fi
     if [ "$FW_V6_DNS_BLOCK" = true ] || [ "$FW_V6_DOT_BLOCK" = true ] || [ "$FW_V6_DOQ_BLOCK" = true ]; then
-        [ "$FW_V6_DNS_BLOCK" = true ] && firewall_exec "$firewall_binary_v6" filter -A "$FW_V6_FILTER" -p tcp --dport 53 -j DROP
-        [ "$FW_V6_DNS_BLOCK" = true ] && firewall_exec "$firewall_binary_v6" filter -A "$FW_V6_FILTER" -p udp --dport 53 -j DROP
-        [ "$FW_V6_DOT_BLOCK" = true ] && firewall_exec "$firewall_binary_v6" filter -A "$FW_V6_FILTER" -p tcp --dport 853 -j DROP
-        [ "$FW_V6_DOT_BLOCK" = true ] && firewall_exec "$firewall_binary_v6" filter -A "$FW_V6_FILTER" -p udp --dport 853 -j DROP
-        [ "$FW_V6_DOQ_BLOCK" = true ] && firewall_exec "$firewall_binary_v6" filter -A "$FW_V6_FILTER" -p udp --dport 784 -j DROP
+        [ "$FW_V6_DNS_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p tcp --dport 53 -j DROP || { firewall_remove; firewall_state_write degraded v6_dns_tcp; return 1; }
+        [ "$FW_V6_DNS_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p udp --dport 53 -j DROP || { firewall_remove; firewall_state_write degraded v6_dns_udp; return 1; }
+        [ "$FW_V6_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p tcp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v6_dot_tcp; return 1; }
+        [ "$FW_V6_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p udp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v6_dot_udp; return 1; }
+        [ "$FW_V6_DOQ_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p udp --dport 784 -j DROP || { firewall_remove; firewall_state_write degraded v6_doq; return 1; }
         firewall_insert_jump "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded v6_filter_jump; return 1; }
     fi
     firewall_state_write ready ready

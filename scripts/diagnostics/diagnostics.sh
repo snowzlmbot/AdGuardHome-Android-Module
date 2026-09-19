@@ -43,6 +43,20 @@ else
     diagnostics_status=failed
 fi
 diagnostics_web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" 2>/dev/null | sed -n '1p')
+diagnostics_filter_dir="$AGH_DATA_DIR/data/filters"
+diagnostics_filter_count=0
+diagnostics_filter_bytes=0
+if [ -d "$diagnostics_filter_dir" ]; then
+    for diagnostics_filter in "$diagnostics_filter_dir"/[0-9]*.txt; do
+        [ -s "$diagnostics_filter" ] || continue
+        diagnostics_filter_count=$((diagnostics_filter_count + 1))
+        diagnostics_filter_size=$(wc -c < "$diagnostics_filter" 2>/dev/null || printf 0)
+        diagnostics_filter_bytes=$((diagnostics_filter_bytes + diagnostics_filter_size))
+    done
+fi
+if [ "$diagnostics_filter_count" -gt 0 ]; then diagnostics_filter_state=ready
+elif [ "$diagnostics_core_state" = ready ]; then diagnostics_filter_state=loading
+else diagnostics_filter_state=unavailable; fi
 
 printf 'status=%s\n' "$diagnostics_status"
 printf 'language=%s\n' "$MODULE_LANG"
@@ -53,6 +67,9 @@ printf 'proxy_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/proxy-
 printf 'file_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null && printf true || printf false )"
 printf 'web_url=%s\n' "$( [ "$diagnostics_core_state" = ready ] && [ -n "$diagnostics_web_port" ] && printf 'http://127.0.0.1:%s' "$diagnostics_web_port" || printf unavailable )"
 printf 'username=admin\n'
+printf 'filters=%s\n' "$diagnostics_filter_state"
+printf 'filter_count=%s\n' "$diagnostics_filter_count"
+printf 'filter_bytes=%s\n' "$diagnostics_filter_bytes"
 
 printf 'arch=%s\n' "$AGH_ARCH"
 printf 'core=%s\n' "$(state_value "$diagnostics_core" state || printf unknown)"

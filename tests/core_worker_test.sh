@@ -15,6 +15,7 @@ export AGH_DATA_DIR="$AGH_ROOT/data"
 export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 mkdir -p "$AGH_ROOT/bin" "$AGH_CONFIG_DIR"
 cp "$ROOT/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml"
+cp "$ROOT/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf"
 printf 'web_port=35001\ndns_port=35002\n' > "$AGH_STATE_DIR.ports.tmp"
 mkdir -p "$AGH_STATE_DIR"
 mv "$AGH_STATE_DIR.ports.tmp" "$AGH_STATE_DIR/ports.conf"
@@ -23,7 +24,8 @@ ensure_credentials "$AGH_STATE_DIR/credentials.conf" || fail 'test credentials m
 
 cat > "$AGH_ROOT/bin/AdGuardHome" <<'EOF'
 #!/bin/sh
-printf '%s\n' "$*" > "$FAKE_CORE_ARGS"
+case " $* " in *' --check-config '*) exit 0 ;; esac
+printf '%s\n' "$*" >> "$FAKE_CORE_ARGS"
 while :; do sleep 1; done
 EOF
 chmod 0755 "$AGH_ROOT/bin/AdGuardHome"
@@ -67,6 +69,8 @@ grep -F -- '--work-dir ' "$FAKE_CORE_ARGS" >/dev/null || fail 'work-dir argument
 grep -F -- '--no-check-update' "$FAKE_CORE_ARGS" >/dev/null || fail 'no-check-update argument missing'
 grep -F -- '--web-addr 127.0.0.1:35001' "$FAKE_CORE_ARGS" >/dev/null || fail 'initial web address argument missing'
 grep -F 'password: mock-hash' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'initial configuration was not persisted'
+grep -F 'https://1.12.12.12/dns-query' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'encrypted mode upstream was not applied'
+grep -F 'mode=2' "$AGH_CONFIG_DIR/mode.conf" >/dev/null || fail 'mode state was not retained'
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'core not ready'
 grep -F 'firewall_authorized=1' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'firewall authorization missing'
 

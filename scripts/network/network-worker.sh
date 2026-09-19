@@ -16,6 +16,7 @@ network_state_write() {
         printf 'state=%s\n' "$network_state_value"
         printf 'mode=%s\n' "${NETWORK_MODE:-2}"
         printf 'network=%s\n' "${NETWORK_TYPE:-none}"
+        printf 'interface=%s\n' "${NETWORK_INTERFACE:-unknown}"
         printf 'vpn=%s\n' "${NETWORK_VPN:-false}"
         printf 'dns4=%s\n' "${NETWORK_DNS4:-}"
         printf 'dns6=%s\n' "${NETWORK_DNS6:-}"
@@ -49,26 +50,45 @@ network_valid_ip_list() {
     return 0
 }
 
+network_default_interface() {
+    NETWORK_INTERFACE=$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | sed -n '1p')
+    [ -n "$NETWORK_INTERFACE" ] || NETWORK_INTERFACE=$(ip route 2>/dev/null | awk '$1 == "default" {for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+    [ -n "$NETWORK_INTERFACE" ] || NETWORK_INTERFACE=$(ip -6 route 2>/dev/null | awk '$1 == "default" {for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+}
+
 network_read_android() {
-    network_connectivity=$(dumpsys connectivity 2>/dev/null) || return 1
-    if printf '%s\n' "$network_connectivity" | grep -q 'type: WIFI'; then
+    network_dump="$AGH_RUN_DIR/connectivity.dump.$$"
+    dumpsys connectivity > "$network_dump" 2>/dev/null || : > "$network_dump"
+    network_default_interface
+    case "$NETWORK_INTERFACE" in
+        wlan*|wifi*) NETWORK_TYPE=wifi ;;
+        rmnet*|ccmni*|pdp*|v4-rmnet*|r_rmnet*) NETWORK_TYPE=mobile ;;
+        eth*) NETWORK_TYPE=ethernet ;;
+        tun*|tap*|ppp*|wg*|tailscale*) NETWORK_TYPE=other ;;
+        '') NETWORK_TYPE=none ;;
+        *) NETWORK_TYPE=other ;;
+    esac
+    if grep -Eq 'TRANSPORT_WIFI|type:[[:space:]]*WIFI|(^|[^A-Z])WIFI([^A-Z]|$)' "$network_dump"; then
         NETWORK_TYPE=wifi
-    elif printf '%s\n' "$network_connectivity" | grep -q 'type: MOBILE'; then
+    elif grep -Eq 'TRANSPORT_CELLULAR|type:[[:space:]]*MOBILE|(^|[^A-Z])MOBILE([^A-Z]|$)' "$network_dump"; then
         NETWORK_TYPE=mobile
-    elif printf '%s\n' "$network_connectivity" | grep -q 'type: ETHERNET'; then
+    elif grep -Eq 'TRANSPORT_ETHERNET|type:[[:space:]]*ETHERNET' "$network_dump"; then
         NETWORK_TYPE=ethernet
-    else
-        NETWORK_TYPE=none
     fi
-    if printf '%s\n' "$network_connectivity" | grep -q 'type: VPN'; then
+    if grep -Eq 'TRANSPORT_VPN|type:[[:space:]]*VPN' "$network_dump" || ip -o link show 2>/dev/null | grep -Eq ':[[:space:]]+(tun|tap|ppp|wg|tailscale)[^:]*:'; then
         NETWORK_VPN=true
     else
         NETWORK_VPN=false
     fi
-    network_dns_line=$(printf '%s\n' "$network_connectivity" | sed -n 's/.*DnsAddresses: \[\([^]]*\)\].*/\1/p' | sed -n '1p' | tr -d ' ')
+    network_dns_line=$(sed -n 's/.*DnsAddresses: \[\([^]]*\)\].*/\1/p' "$network_dump" | sed -n '1p' | tr -d ' /')
     network_dns_tokens=$(printf '%s\n' "$network_dns_line" | tr ',' '\n')
     NETWORK_DNS4=$(printf '%s\n' "$network_dns_tokens" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | awk 'BEGIN{first=1}{if(!first)printf ","; printf "%s",$0; first=0}END{if(!first)printf "\n"}')
     NETWORK_DNS6=$(printf '%s\n' "$network_dns_tokens" | grep ':' | awk 'BEGIN{first=1}{if(!first)printf ","; printf "%s",$0; first=0}END{if(!first)printf "\n"}')
+    network_dump_has_data=false
+    [ -s "$network_dump" ] && network_dump_has_data=true
+    rm -f "$network_dump"
+    [ "$NETWORK_TYPE" != none ] || [ "$network_dump_has_data" != true ] || NETWORK_TYPE=other
+    [ "$NETWORK_TYPE" != none ] || [ "$network_dump_has_data" = true ] || return 1
 }
 
 network_read_snapshot() {
@@ -105,7 +125,7 @@ network_once() {
         network_state_write degraded discovery_failed
         return 1
     fi
-    case "$NETWORK_TYPE" in wifi|mobile|ethernet|none) ;; *) network_state_write degraded invalid_network_type; return 1 ;; esac
+    case "$NETWORK_TYPE" in wifi|mobile|ethernet|other|none) ;; *) network_state_write degraded invalid_network_type; return 1 ;; esac
     case "$NETWORK_VPN" in true|false) ;; *) network_state_write degraded invalid_vpn; return 1 ;; esac
     network_valid_ip_list "$NETWORK_DNS4" || { network_state_write degraded invalid_dns4; return 1; }
     network_valid_ip_list "$NETWORK_DNS6" || { network_state_write degraded invalid_dns6; return 1; }
@@ -113,7 +133,11 @@ network_once() {
         network_state_write degraded no_network
         return 1
     fi
-    network_state_write ready ready
+    if [ -z "$NETWORK_DNS4" ] && [ -z "$NETWORK_DNS6" ]; then
+        network_state_write ready dns_not_exposed
+    else
+        network_state_write ready ready
+    fi
     cp "$AGH_STATE_DIR/network.state" "$AGH_STATE_DIR/network.lastgood"
     chmod 0600 "$AGH_STATE_DIR/network.lastgood"
 }

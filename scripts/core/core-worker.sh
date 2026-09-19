@@ -7,6 +7,7 @@ export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/common.sh"
 . "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
 . "$MODULE_SCRIPTS_DIR/lib/config.sh"
+. "$MODULE_SCRIPTS_DIR/lib/agh-config.sh"
 . "$MODULE_SCRIPTS_DIR/lib/platform.sh"
 . "$MODULE_SCRIPTS_DIR/lib/credentials.sh"
 . "$MODULE_SCRIPTS_DIR/lib/process.sh"
@@ -105,6 +106,24 @@ core_restore_initial_template() {
     fi
 }
 
+core_apply_selected_mode() {
+    core_selected_mode=$(sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p')
+    case "$core_selected_mode" in 1|2|3) ;; *) return 1 ;; esac
+    core_mode_backup="$AGH_BACKUP_DIR/pre-mode-config.yaml"
+    cp -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$core_mode_backup" || return 1
+    if ! agh_apply_mode "$core_selected_mode" "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$AGH_CONFIG_DIR/mode.conf"; then
+        atomic_copy "$core_mode_backup" "$AGH_CONFIG_DIR/AdGuardHome.yaml" || true
+        return 1
+    fi
+    if ! "$CORE_BINARY" --config "$AGH_CONFIG_DIR/AdGuardHome.yaml" --work-dir "$AGH_DATA_DIR" --check-config >/dev/null 2>&1; then
+        atomic_copy "$core_mode_backup" "$AGH_CONFIG_DIR/AdGuardHome.yaml" || true
+        return 1
+    fi
+    rm -f "$core_mode_backup"
+    printf 'version=1\nmode=%s\n' "$core_selected_mode" > "$AGH_STATE_DIR/upstream-policy.conf"
+    chmod 0600 "$AGH_STATE_DIR/upstream-policy.conf"
+}
+
 core_start_process() {
     core_log="$AGH_LOG_DIR/core-process.log"
     if [ "${CORE_INITIAL_SETUP:-0}" = 1 ]; then
@@ -152,6 +171,14 @@ core_start() {
         cp -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$AGH_BACKUP_DIR/pre-initial-setup.yaml" || { core_state_write failed config_backup; return 1; }
         rm -f "$AGH_CONFIG_DIR/AdGuardHome.yaml"
     else
+        if [ ! -f "$AGH_STATE_DIR/upstream-policy.conf" ]; then
+            if grep -q 'dns10.quad9.net' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then
+                core_apply_selected_mode || { core_state_write failed mode_configuration; return 1; }
+            else
+                printf 'version=1\nmode=custom\n' > "$AGH_STATE_DIR/upstream-policy.conf"
+                chmod 0600 "$AGH_STATE_DIR/upstream-policy.conf"
+            fi
+        fi
         core_prepare_runtime_config || { core_state_write failed runtime_config; return 1; }
     fi
     export SSL_CERT_DIR=${SSL_CERT_DIR:-/system/etc/security/cacerts/}
@@ -174,6 +201,20 @@ core_start() {
             core_stop
             core_restore_initial_template || true
             core_state_write failed dns_port_timeout
+            return 1
+        fi
+        core_stop
+        if ! core_apply_selected_mode; then
+            core_restore_initial_template || true
+            core_state_write failed mode_configuration
+            return 1
+        fi
+        CORE_INITIAL_SETUP=0
+        core_prepare_runtime_config || { core_state_write failed runtime_config; return 1; }
+        core_start_process
+        if ! core_wait_for_port "$PORT_WEB" "${CORE_START_WAIT:-30}" || ! core_wait_for_port "$PORT_DNS" "${CORE_DNS_WAIT:-30}"; then
+            core_stop
+            core_state_write failed mode_restart_timeout
             return 1
         fi
     elif ! core_wait_for_port "$PORT_DNS" "${CORE_DNS_WAIT:-30}"; then

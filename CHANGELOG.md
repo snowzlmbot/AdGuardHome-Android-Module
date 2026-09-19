@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5
+
+- Fixed modern Android network discovery without storing large `dumpsys connectivity` output in a shell argument.
+- Added explicit Wi‑Fi, mobile-data, Ethernet, and VPN-over-Wi‑Fi/mobile detection and WebUI labels.
+- Fixed iptables/ip6tables filter-table command syntax and fail closed when a rule cannot be installed.
+- Added stricter command-recording firewall tests with injected failures.
+- Added explicit filter-list readiness/count/size status.
+- Apply real upstream profiles for LAN-compatible, encrypted-IP DoH, and Bootstrap modes; mode changes now validate and restart safely.
+- Replaced unreachable Quad9 defaults with network-friendlier profiles and retained user-customized upstreams.
+
 ## 0.1.4
 
 - Fixed the real first-run failure: initialize AdGuard Home from a missing config through the official install API instead of calling the unavailable install API on `users: []`.

@@ -1,0 +1,22 @@
+#!/bin/sh
+[ "${1:-}" = connectivity ] || exit 1
+case "${MOCK_NET:-wifi}" in
+  wifi)
+    printf '%s\n' 'NetworkCapabilities: TRANSPORT_WIFI&VALIDATED'
+    printf '%s\n' 'LinkProperties{InterfaceName: wlan0 DnsAddresses: [ /192.0.2.53,/2001:db8::53 ]}'
+    ;;
+  mobile)
+    printf '%s\n' 'NetworkCapabilities: TRANSPORT_CELLULAR&VALIDATED'
+    printf '%s\n' 'NetworkCapabilities: TRANSPORT_VPN&VALIDATED'
+    printf '%s\n' 'LinkProperties{InterfaceName: rmnet_data0 DnsAddresses: [ /198.51.100.53 ]}'
+    ;;
+  hidden)
+    printf '%s\n' 'NetworkCapabilities: VALIDATED'
+    printf '%s\n' 'LinkProperties{InterfaceName: mystery0 DnsAddresses: []}'
+    ;;
+esac
+count=0
+while [ "$count" -lt 5000 ]; do
+  printf 'NetworkAgentInfo filler line %04d abcdefghijklmnopqrstuvwxyz0123456789\n' "$count"
+  count=$((count + 1))
+done

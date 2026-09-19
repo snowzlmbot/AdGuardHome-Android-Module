@@ -27,6 +27,8 @@ IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BI
 grep -F -- 'AGHADM4N' "$fixture/iptables.log" >/dev/null || fail 'owned NAT chain missing'
 grep -F -- 'AGHADF4' "$fixture/iptables.log" >/dev/null || fail 'owned v4 filter chain missing'
 grep -F -- 'AGHADF6' "$fixture/ip6tables.log" >/dev/null || fail 'owned v6 filter chain missing'
+grep -F -- '-t filter -A AGHADF4' "$fixture/iptables.log" >/dev/null || fail 'v4 filter table flag missing'
+grep -F -- '-t filter -A AGHADF6' "$fixture/ip6tables.log" >/dev/null || fail 'v6 filter table flag missing'
 ! grep -F -- 'FOREIGN' "$fixture/iptables.log" >/dev/null || fail 'foreign chain touched'
 
 before=$(wc -l < "$fixture/iptables.log")
@@ -46,5 +48,12 @@ grep -F 'state=removed' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'fire
 printf 'state=failed\nfirewall_authorized=0\n' > "$AGH_STATE_DIR/core.state"
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/scripts/firewall/firewall-worker.sh" once || fail 'unsafe core state caused worker failure'
 grep -F 'reason=core_not_ready' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'core safety gate missing'
+
+printf 'state=ready\nfirewall_authorized=1\ndns_port=35002\n' > "$AGH_STATE_DIR/core.state"
+if IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" IP6TABLES_FAIL_MATCH='--dport 53' sh "$ROOT/scripts/firewall/firewall-worker.sh" once; then
+    fail 'injected ip6tables failure was ignored'
+fi
+grep -F 'state=degraded' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'firewall failure state missing'
+grep -F 'reason=v6_dns_tcp' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'firewall failure reason missing'
 
 printf '%s\n' 'firewall tests passed'

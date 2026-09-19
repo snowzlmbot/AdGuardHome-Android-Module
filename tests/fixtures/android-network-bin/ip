@@ -1,0 +1,20 @@
+#!/bin/sh
+case "$*" in
+  'route get 1.1.1.1')
+    case "${MOCK_NET:-wifi}" in
+      wifi) printf '%s\n' '1.1.1.1 via 192.0.2.1 dev wlan0 src 192.0.2.2' ;;
+      mobile) printf '%s\n' '1.1.1.1 dev rmnet_data0 src 198.51.100.2' ;;
+      hidden) printf '%s\n' '1.1.1.1 dev mystery0 src 203.0.113.2' ;;
+    esac
+    ;;
+  '-o link show')
+    [ "${MOCK_NET:-wifi}" = mobile ] && printf '%s\n' '8: tun0: <POINTOPOINT,UP>' || printf '%s\n' '2: wlan0: <UP>'
+    ;;
+  'route')
+    exit 0
+    ;;
+  '-6 route')
+    exit 0
+    ;;
+  *) exit 1 ;;
+esac
