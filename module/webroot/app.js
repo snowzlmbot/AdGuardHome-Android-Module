@@ -11,7 +11,7 @@ const messages = {
     'component.file': '文件', 'component.filter': '规则',
     'hint.autoRefresh': '操作后自动刷新', 'hint.isolation': '故障不会停止 DNS 核心',
     'action.start': '▶ 启动', 'action.pause': 'Ⅱ 暂停', 'action.resume': '↗ 恢复', 'action.restart': '↻ 重启核心',
-    'action.openDashboard': '打开管理界面', 'action.queryLog': '打开查询日志', 'action.credentials': '查看登录凭据', 'action.logs': '查看模块日志', 'action.refresh': '刷新状态', 'action.close': '关闭',
+    'action.openDashboard': '打开管理界面', 'action.queryLog': '打开查询日志', 'action.credentials': '查看登录凭据', 'action.logs': '查看模块日志', 'action.backup': '备份配置', 'action.refresh': '刷新状态', 'action.close': '关闭',
     'mode.unknown': '未知', 'mode.1': '内网兼容', 'mode.1help': '校园网 / 企业域名', 'mode.2': '纯加密', 'mode.3help': '域名上游引导',
     'dashboard.waiting': '等待核心启动…', 'adapter.proxy': '代理配置适配', 'adapter.file': '文件级去广告',
     'adapter.fileWarning': '高风险 · 默认关闭', 'adapter.proxyToggle': '切换代理适配', 'adapter.fileToggle': '切换文件适配',
@@ -23,7 +23,7 @@ const messages = {
     'summary.running': 'DNS 核心与过滤规则已生效', 'summary.filtersLoading': 'DNS 核心已运行，过滤规则仍在加载', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
     'summary.stopped': '模块已停止；点击启动恢复', 'summary.degraded': '核心已运行，但部分组件未生效',
     'summary.failed': 'AdGuard Home 核心未启动',
-    'toast.done': '操作已提交', 'toast.mode': '模式已保存', 'toast.modePending': '模式已保存，核心恢复后生效',
+    'toast.done': '操作已提交', 'toast.backup': '配置备份已创建', 'toast.mode': '模式已保存', 'toast.modePending': '模式已保存，核心恢复后生效',
     'toast.failed': '操作失败', 'toast.refreshed': '状态已刷新', 'toast.unavailable': 'AdGuard Home 尚未启动',
     'toast.bridge': '请在 KernelSU 模块 WebUI 中打开', 'toast.credentials': '凭据读取失败',
     'status.ready': '正常', 'status.running': '运行中', 'status.failed': '失败', 'status.degraded': '异常', 'status.removed': '已撤销',
@@ -44,7 +44,7 @@ const messages = {
     'component.file': 'FILE', 'component.filter': 'FILTERS',
     'hint.autoRefresh': 'Refreshes after actions', 'hint.isolation': 'Adapter failures do not stop DNS',
     'action.start': '▶ Start', 'action.pause': 'Ⅱ Pause', 'action.resume': '↗ Resume', 'action.restart': '↻ Restart core',
-    'action.openDashboard': 'Open dashboard', 'action.queryLog': 'Open query log', 'action.credentials': 'Show credentials', 'action.logs': 'View module logs', 'action.refresh': 'Refresh status', 'action.close': 'Close',
+    'action.openDashboard': 'Open dashboard', 'action.queryLog': 'Open query log', 'action.credentials': 'Show credentials', 'action.logs': 'View module logs', 'action.backup': 'Backup config', 'action.refresh': 'Refresh status', 'action.close': 'Close',
     'mode.unknown': 'Unknown', 'mode.1': 'LAN compatible', 'mode.1help': 'Campus / enterprise domains', 'mode.2': 'Encrypted', 'mode.3help': 'Domain upstream bootstrap',
     'dashboard.waiting': 'Waiting for the core…', 'adapter.proxy': 'Proxy configuration adapter', 'adapter.file': 'File-level ad cleanup',
     'adapter.fileWarning': 'HIGH RISK · OFF BY DEFAULT', 'adapter.proxyToggle': 'Toggle proxy adapter', 'adapter.fileToggle': 'Toggle file adapter',
@@ -56,7 +56,7 @@ const messages = {
     'summary.running': 'DNS core and filtering rules are active', 'summary.filtersLoading': 'DNS core is running; filter lists are still loading', 'summary.paused': 'Core is running; DNS redirects are removed',
     'summary.stopped': 'The module is stopped; press Start to recover', 'summary.degraded': 'Core is running, but a component is inactive',
     'summary.failed': 'AdGuard Home core is not running',
-    'toast.done': 'Action submitted', 'toast.mode': 'Mode saved', 'toast.modePending': 'Mode saved; it will apply after core recovery',
+    'toast.done': 'Action submitted', 'toast.backup': 'Configuration backup created', 'toast.mode': 'Mode saved', 'toast.modePending': 'Mode saved; it will apply after core recovery',
     'toast.failed': 'Action failed', 'toast.refreshed': 'Status refreshed', 'toast.unavailable': 'AdGuard Home is not running',
     'toast.bridge': 'Open this page inside KernelSU module WebUI', 'toast.credentials': 'Failed to read credentials',
     'status.ready': 'Ready', 'status.running': 'Running', 'status.failed': 'Failed', 'status.degraded': 'Degraded', 'status.removed': 'Removed',
@@ -238,6 +238,14 @@ async function showCredentials() {
   } catch { showToast(text('toast.credentials')); }
 }
 
+async function createBackup() {
+  try {
+    const result = await exec(`sh ${CONTROL} backup`);
+    if (result.errno !== 0) throw new Error(result.stderr || 'backup');
+    showToast(text('toast.backup'));
+  } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }
+}
+
 async function showLogs() {
   try {
     const result = await exec(`sh ${DIAGNOSTICS} logs`);
@@ -262,6 +270,7 @@ $('openAdmin').addEventListener('click', () => openDashboard(''));
 $('openQueryLog').addEventListener('click', () => openDashboard('/#logs?response_status=all'));
 $('showCredentials').addEventListener('click', showCredentials);
 $('showLogs').addEventListener('click', showLogs);
+$('createBackup').addEventListener('click', createBackup);
 $('closeDialog').addEventListener('click', () => $('credentialDialog').close ? $('credentialDialog').close() : $('credentialDialog').removeAttribute('open'));
 $('closeLogs').addEventListener('click', () => $('logDialog').close ? $('logDialog').close() : $('logDialog').removeAttribute('open'));
 $('proxyToggle').addEventListener('click', () => runControl($('proxyToggle').dataset.enabled === 'true' ? 'disable-proxy' : 'enable-proxy'));

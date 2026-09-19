@@ -13,6 +13,10 @@ control_sync_supervisor() {
     sh "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1 || true
 }
 
+control_backup() {
+    sh "$SCRIPT_DIR/backup.sh" "$@"
+}
+
 control_set_adapter() {
     control_adapter_name=$1
     control_adapter_value=$2
@@ -104,6 +108,9 @@ case "$control_command" in
         sh "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
         printf '%s\n' 'request=start'
         ;;
+    backup) control_backup create ;;
+    backup-latest) control_backup latest ;;
+    backup-restore) control_backup restore ;;
     set-mode) control_set_mode "$control_argument"; control_sync_supervisor; printf 'mode=%s\n' "$control_argument" ;;
     set-policy) control_set_policy "$control_argument" "$control_value"; control_sync_supervisor; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
     enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor; printf '%s\n' 'request=enable-proxy' ;;
@@ -129,7 +136,7 @@ case "$control_command" in
         fi
         ;;
     *)
-        printf 'usage: %s {start|pause|resume|enable|disable|restart-core|set-mode 1|2|3|status|enable-proxy|disable-proxy|enable-file|disable-file}\n' "$0" >&2
+        printf 'usage: %s {start|status|backup|backup-latest|backup-restore|pause|resume|enable|disable|restart-core|set-mode 1|2|3|set-policy key true|false|enable-proxy|disable-proxy|enable-file|disable-file}\n' "$0" >&2
         exit 2
         ;;
 esac

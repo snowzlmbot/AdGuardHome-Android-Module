@@ -14,6 +14,7 @@ for test_script in \
     core_native_test.sh \
     supervisor_test.sh \
     control_test.sh \
+    backup_test.sh \
     network_test.sh \
     firewall_test.sh \
     proxy_adapter_test.sh \

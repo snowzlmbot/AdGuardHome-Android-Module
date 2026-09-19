@@ -8,9 +8,9 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
-> 当前版本：**0.1.12**
+> 当前版本：**0.1.13**
 >
-> 直接下载：[AdGuardHome-Android-Module-0.1.12-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.12/AdGuardHome-Android-Module-0.1.12-agh-0.107.79.zip)
+> 直接下载：[AdGuardHome-Android-Module-0.1.13-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.13/AdGuardHome-Android-Module-0.1.13-agh-0.107.79.zip)
 
 ## 项目入口
 
@@ -43,7 +43,7 @@
 | 网络 | Wi‑Fi、移动数据、以太网、VPN 叠加、代理模块共存 |
 | 控制 | 启动、暂停、恢复、重启核心、固定端口 |
 | WebUI | KernelSU 原生 `webroot/` 控制台 |
-| 凭据 | 首次本地生成随机管理密码，不使用 `root/root` |
+| 凭据 | 首次本地生成随机管理密码 |
 | 适配器 | Box/Clash/Mihomo 代理适配；文件级去广告；默认关闭 |
 | 更新方式 | GitHub Release 完整包与校验文件 |
 

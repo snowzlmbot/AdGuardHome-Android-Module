@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.13
+
+- Added one-tap configuration backup from KernelSU WebUI.
+- Added persistent VPN and security-policy switches to the WebUI.
+- Added immediate control synchronization and power-aware background polling.
+- Improved public project documentation and separate Android Manager planning.
+
 ## 0.1.12
 
 - VPN passthrough is enabled by default when a VPN interface is active, keeping VPN servers usable on Wi‑Fi and mobile data.

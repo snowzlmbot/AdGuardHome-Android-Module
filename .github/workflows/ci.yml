@@ -25,6 +25,7 @@ jobs:
           sudo -E sh tests/core_native_test.sh
           sh tests/supervisor_test.sh
           sh tests/control_test.sh
+          sh tests/backup_test.sh
           sh tests/network_test.sh
           sh tests/firewall_test.sh
           sh tests/proxy_adapter_test.sh
