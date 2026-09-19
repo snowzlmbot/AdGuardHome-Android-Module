@@ -45,9 +45,9 @@ printf 'state=ready\nmode=1\nnetwork=mobile\nvpn=true\ndns4=198.51.100.1\ndns6=\
 : > "$fixture/iptables.log"
 : > "$fixture/ip6tables.log"
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once || fail 'VPN bypass ensure failed'
-grep -F -- '-o tun+ -j RETURN' "$fixture/iptables.log" >/dev/null || fail 'VPN NAT bypass missing'
-grep -F -- '-o tun+ -j RETURN' "$fixture/ip6tables.log" >/dev/null || fail 'VPN IPv6 bypass missing'
-if grep -F -- '--dport 853' "$fixture/iptables.log" | tail -n 20 | grep -q -- '-A AGHADF4'; then fail 'VPN encrypted DNS was blocked'; fi
+grep -F 'state=ready' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'VPN passthrough state not ready'
+grep -F 'reason=vpn_passthrough' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'VPN passthrough reason missing'
+if grep -E -- ' -N AGHADM4N| -A AGHADM4N| -I AGHADM4N' "$fixture/iptables.log" >/dev/null; then fail 'VPN traffic should bypass module firewall chain'; fi
 
 echo remove > "$AGH_RUN_DIR/firewall/request"
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once || fail 'remove failed'
@@ -58,6 +58,7 @@ IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BI
 grep -F 'reason=core_not_ready' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'core safety gate missing'
 
 printf 'state=ready\nfirewall_authorized=1\ndns_port=35002\n' > "$AGH_STATE_DIR/core.state"
+printf 'state=ready\nmode=1\nnetwork=wifi\nvpn=false\n' > "$AGH_STATE_DIR/network.state"
 if IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" IP6TABLES_FAIL_MATCH='--dport 53' sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once; then
     fail 'injected ip6tables failure was ignored'
 fi

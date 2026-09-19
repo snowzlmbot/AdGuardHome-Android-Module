@@ -60,7 +60,16 @@ install_select_mode() {
 
 configure_install_options() {
     install_marker="$AGH_STATE_DIR/install-options.done"
-    [ -f "$install_marker" ] && return 0
+    if [ -f "$install_marker" ]; then
+        if ! grep -q '^selection_version=' "$install_marker"; then
+            install_legacy_proxy=$(sed -n 's/^proxy=//p' "$install_marker" | sed -n '1p')
+            install_legacy_file=$(sed -n 's/^file_adapter=//p' "$install_marker" | sed -n '1p')
+            [ "$install_legacy_proxy" != true ] || install_set_value "$AGH_CONFIG_DIR/proxy-adapter.conf" enabled true || true
+            [ "$install_legacy_file" != true ] || install_set_value "$AGH_CONFIG_DIR/file-adapter.conf" enabled true || true
+            printf 'selection_version=2\n' >> "$install_marker"
+        fi
+        return 0
+    fi
     if [ -f "$AGH_STATE_DIR/ports.conf" ] && [ -f "$AGH_CONFIG_DIR/mode.conf" ]; then
         install_existing_mode=$(sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" | sed -n '1p')
         install_existing_ipv6=$(sed -n 's/^redirect_ipv6_dns=//p' "$AGH_CONFIG_DIR/mode.conf" | sed -n '1p')
@@ -69,7 +78,7 @@ configure_install_options() {
         [ -n "$install_existing_ipv6" ] || install_existing_ipv6=true
         [ -n "$install_existing_853" ] || install_existing_853=true
         install_set_value "$AGH_CONFIG_DIR/proxy-adapter.conf" enabled "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" 2>/dev/null || true
-        printf 'mode=%s\nipv6=%s\nblock_853=%s\nproxy=%s\nfile_adapter=%s\n' "$install_existing_mode" "$install_existing_ipv6" "$install_existing_853" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null | sed -n '1p')" > "$install_marker"
+        printf 'mode=%s\nipv6=%s\nblock_853=%s\nproxy=%s\nfile_adapter=%s\nselection_version=2\n' "$install_existing_mode" "$install_existing_ipv6" "$install_existing_853" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null | sed -n '1p')" > "$install_marker"
         chmod 0600 "$install_marker"
         i18n_ui_print "- 检测到已有安装，保留原有模式和功能开关" "- Existing installation detected; preserving mode and feature toggles"
         return 0
@@ -121,7 +130,7 @@ configure_install_options() {
     install_set_value "$AGH_CONFIG_DIR/mode.conf" block_ipv6_doq "$install_853" || return 1
     install_set_value "$AGH_CONFIG_DIR/proxy-adapter.conf" enabled "$install_proxy" || return 1
     install_set_value "$AGH_CONFIG_DIR/file-adapter.conf" enabled "$install_file_adapter" || return 1
-    printf 'mode=%s\nipv6=%s\nblock_853=%s\nproxy=%s\nfile_adapter=%s\n' "$INSTALL_SELECTED_MODE" "$install_ipv6" "$install_853" "$install_proxy" "$install_file_adapter" > "$install_marker" || return 1
+    printf 'mode=%s\nipv6=%s\nblock_853=%s\nproxy=%s\nfile_adapter=%s\nselection_version=2\n' "$INSTALL_SELECTED_MODE" "$install_ipv6" "$install_853" "$install_proxy" "$install_file_adapter" > "$install_marker" || return 1
     chmod 0600 "$install_marker"
 
     i18n_ui_print "- 已选择模式: $INSTALL_SELECTED_MODE" "- Selected mode: $INSTALL_SELECTED_MODE"

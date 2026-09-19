@@ -78,6 +78,25 @@ fi
 if [ "$diagnostics_filter_count" -gt 0 ]; then diagnostics_filter_state=ready
 elif [ "$diagnostics_core_state" = ready ]; then diagnostics_filter_state=loading
 else diagnostics_filter_state=unavailable; fi
+diagnostics_querylog_file="$AGH_DATA_DIR/data/querylog.json"
+diagnostics_querylog_bytes=0
+diagnostics_querylog_age=-1
+if [ -f "$diagnostics_querylog_file" ]; then
+    diagnostics_querylog_bytes=$(wc -c < "$diagnostics_querylog_file" 2>/dev/null || printf 0)
+    diagnostics_querylog_mtime=$(stat -c '%Y' "$diagnostics_querylog_file" 2>/dev/null || stat -f '%m' "$diagnostics_querylog_file" 2>/dev/null || printf 0)
+    diagnostics_querylog_now=$(date +%s 2>/dev/null || printf 0)
+    case "$diagnostics_querylog_mtime:$diagnostics_querylog_now" in
+        *[!0-9:]*|:*) diagnostics_querylog_age=-1 ;;
+        *) diagnostics_querylog_age=$((diagnostics_querylog_now - diagnostics_querylog_mtime)); [ "$diagnostics_querylog_age" -lt 0 ] && diagnostics_querylog_age=0 ;;
+    esac
+fi
+if [ "$diagnostics_querylog_bytes" -gt 0 ] && [ "$diagnostics_querylog_age" -ge 0 ] && [ "$diagnostics_querylog_age" -le 600 ]; then
+    diagnostics_querylog_state=ready
+elif [ "$diagnostics_querylog_bytes" -gt 0 ]; then
+    diagnostics_querylog_state=stale
+else
+    diagnostics_querylog_state=empty
+fi
 
 printf 'status=%s\n' "$diagnostics_status"
 printf 'language=%s\n' "$MODULE_LANG"
@@ -86,11 +105,18 @@ printf 'mode_name=%s\n' "$diagnostics_mode_name"
 printf 'paused=%s\n' "$( [ -f "$AGH_STATE_DIR/paused" ] && printf true || printf false )"
 printf 'proxy_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null && printf true || printf false )"
 printf 'file_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null && printf true || printf false )"
+printf 'ipv6_dns_block=%s\n' "$( sed -n 's/^redirect_ipv6_dns=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+printf 'dot_block=%s\n' "$( sed -n 's/^block_ipv4_dot=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+printf 'doq_block=%s\n' "$( sed -n 's/^block_ipv4_doq=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+printf 'vpn_passthrough=%s\n' "$( sed -n 's/^bypass_vpn_traffic=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'web_url=%s\n' "$( [ "$diagnostics_core_state" = ready ] && [ -n "$diagnostics_web_port" ] && printf 'http://127.0.0.1:%s' "$diagnostics_web_port" || printf unavailable )"
 printf 'username=admin\n'
 printf 'filters=%s\n' "$diagnostics_filter_state"
 printf 'filter_count=%s\n' "$diagnostics_filter_count"
 printf 'filter_bytes=%s\n' "$diagnostics_filter_bytes"
+printf 'querylog=%s\n' "$diagnostics_querylog_state"
+printf 'querylog_bytes=%s\n' "$diagnostics_querylog_bytes"
+printf 'querylog_age=%s\n' "$diagnostics_querylog_age"
 
 printf 'arch=%s\n' "$AGH_ARCH"
 printf 'core=%s\n' "$(state_value "$diagnostics_core" state || printf unknown)"

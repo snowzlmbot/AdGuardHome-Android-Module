@@ -18,7 +18,7 @@ log_section() {
     log_section_file=${AGH_LOG_DIR:-/data/adb/agh/logs}/$log_section_component.log
     mkdir -p "${log_section_file%/*}"
     log_rotate_file "$log_section_file"
-    printf '\n===== %s [%s] %s =====\n' "$(date '+%F %T')" "$log_section_component" "$*" >> "$log_section_file"
+    printf '\n===== %s [%s] %s =====\n' "$(date '+%F %T %z')" "$log_section_component" "$*" >> "$log_section_file"
 }
 
 log_message() {
@@ -28,10 +28,10 @@ log_message() {
     log_file=${AGH_LOG_DIR:-/data/adb/agh/logs}/$log_component.log
     mkdir -p "${log_file%/*}"
     log_rotate_file "$log_file"
-    printf '%s [%s] %s\n' "$(date '+%F %T')" "$log_component" "$log_text" >> "$log_file"
+    printf '%s [%s] %s\n' "$(date '+%F %T %z')" "$log_component" "$log_text" >> "$log_file"
     if [ "$log_component" != events ]; then
         log_events=${AGH_LOG_DIR:-/data/adb/agh/logs}/events.log
         log_rotate_file "$log_events"
-        printf '%s [%s] %s\n' "$(date '+%F %T')" "$log_component" "$log_text" >> "$log_events"
+        printf '%s [%s] %s\n' "$(date '+%F %T %z')" "$log_component" "$log_text" >> "$log_events"
     fi
 }

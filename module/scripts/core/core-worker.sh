@@ -124,6 +124,17 @@ core_apply_selected_mode() {
     chmod 0600 "$AGH_STATE_DIR/upstream-policy.conf"
 }
 
+core_apply_querylog_defaults() {
+    core_querylog_file="$AGH_CONFIG_DIR/AdGuardHome.yaml"
+    [ -f "$core_querylog_file" ] || return 1
+    core_querylog_tmp="$core_querylog_file.querylog.$$"
+    sed -e '/^querylog:/,/^[^[:space:]]/ s/^  size_memory: 1000$/  size_memory: 100/' \
+        -e '/^querylog:/,/^[^[:space:]]/ s/^  file_enabled: false$/  file_enabled: true/' \
+        "$core_querylog_file" > "$core_querylog_tmp" || { rm -f "$core_querylog_tmp"; return 1; }
+    sync
+    mv -f "$core_querylog_tmp" "$core_querylog_file"
+}
+
 core_start_process() {
     core_log="$AGH_LOG_DIR/core-process.log"
     log_rotate_file "$core_log"
@@ -173,6 +184,7 @@ core_start() {
         cp -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$AGH_BACKUP_DIR/pre-initial-setup.yaml" || { core_state_write failed config_backup; return 1; }
         rm -f "$AGH_CONFIG_DIR/AdGuardHome.yaml"
     else
+        core_apply_querylog_defaults || { core_state_write failed querylog_config; return 1; }
         if [ ! -f "$AGH_STATE_DIR/upstream-policy.conf" ]; then
             if grep -q 'dns10.quad9.net' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then
                 core_apply_selected_mode || { core_state_write failed mode_configuration; return 1; }
@@ -199,6 +211,7 @@ core_start() {
             core_state_write failed initial_configuration
             return 1
         fi
+        core_apply_querylog_defaults || { core_stop; core_restore_initial_template || true; core_state_write failed querylog_config; return 1; }
         if ! core_wait_for_port "$PORT_DNS" "${CORE_DNS_WAIT:-30}"; then
             core_stop
             core_restore_initial_template || true

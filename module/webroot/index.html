@@ -89,6 +89,18 @@
         <div><b data-i18n="adapter.file">文件级去广告</b><small class="danger-text" data-i18n="adapter.fileWarning">高风险 · 默认关闭</small></div>
         <button id="fileToggle" class="toggle danger" data-i18n-aria="adapter.fileToggle" aria-label="切换文件适配">关闭</button>
       </div>
+      <div class="adapter-row">
+        <div><b data-i18n="policy.ipv6">IPv6 DNS 防泄漏</b><small data-i18n="policy.ipv6Help">阻断直连 IPv6 DNS</small></div>
+        <button class="toggle policy-toggle" data-policy="redirect_ipv6_dns">关闭</button>
+      </div>
+      <div class="adapter-row">
+        <div><b data-i18n="policy.encrypted">853 加密 DNS 防泄漏</b><small data-i18n="policy.encryptedHelp">DoT / DoQ 端口策略</small></div>
+        <button class="toggle policy-toggle" data-policy="block_853">关闭</button>
+      </div>
+      <div class="adapter-row">
+        <div><b data-i18n="policy.vpn">VPN 兼容旁路</b><small data-i18n="policy.vpnHelp">VPN 运行时优先保证连接</small></div>
+        <button class="toggle policy-toggle" data-policy="bypass_vpn_traffic">开启</button>
+      </div>
     </section>
 
     <footer><span data-i18n="footer.refresh">状态每 5 秒自动刷新</span><a href="https://github.com/snowzlmbot/AdGuardHome-Android-Module">GitHub</a></footer>

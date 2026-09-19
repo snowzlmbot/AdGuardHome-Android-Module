@@ -154,10 +154,16 @@ firewall_ensure() {
     FW_NETWORK_VPN=$(firewall_state_value "$AGH_STATE_DIR/network.state" vpn); [ -n "$FW_NETWORK_VPN" ] || FW_NETWORK_VPN=unknown
     FW_BYPASS_VPN_DNS=$(firewall_config_value bypass_vpn_dns); [ -n "$FW_BYPASS_VPN_DNS" ] || FW_BYPASS_VPN_DNS=true
     FW_BYPASS_VPN_ENCRYPTED=$(firewall_config_value bypass_vpn_encrypted_dns); [ -n "$FW_BYPASS_VPN_ENCRYPTED" ] || FW_BYPASS_VPN_ENCRYPTED=true
+    FW_BYPASS_VPN_TRAFFIC=$(firewall_config_value bypass_vpn_traffic); [ -n "$FW_BYPASS_VPN_TRAFFIC" ] || FW_BYPASS_VPN_TRAFFIC=true
 
     firewall_remove_jump_all "$firewall_binary_v4" nat "$FW_V4_NAT"
     firewall_remove_jump_all "$firewall_binary_v4" filter "$FW_V4_FILTER"
     firewall_remove_jump_all "$firewall_binary_v6" filter "$FW_V6_FILTER"
+    if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_TRAFFIC" = true ]; then
+        firewall_remove
+        firewall_state_write ready vpn_passthrough
+        return 0
+    fi
     firewall_ensure_chain "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_nat_chain; return 1; }
     firewall_ensure_chain "$firewall_binary_v4" filter "$FW_V4_FILTER" || { firewall_remove; firewall_state_write degraded v4_filter_chain; return 1; }
     firewall_ensure_chain "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded v6_filter_chain; return 1; }

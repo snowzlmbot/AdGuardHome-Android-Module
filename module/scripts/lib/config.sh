@@ -12,7 +12,7 @@ install_runtime_defaults() {
     if [ ! -f "$AGH_CONFIG_DIR/mode.conf" ]; then
         atomic_copy "$config_module_root/config/mode.conf" "$AGH_CONFIG_DIR/mode.conf" || return 1
     fi
-    for config_key in mode I_network Lock_sleep port_testing redirect_ipv4_dns redirect_ipv6_dns block_ipv4_dot block_ipv6_dot block_ipv4_doq block_ipv6_doq bypass_vpn_dns bypass_vpn_encrypted_dns lan_dns_target bootstrap_dns; do
+    for config_key in mode I_network Lock_sleep port_testing redirect_ipv4_dns redirect_ipv6_dns block_ipv4_dot block_ipv6_dot block_ipv4_doq block_ipv6_doq bypass_vpn_dns bypass_vpn_encrypted_dns bypass_vpn_traffic lan_dns_target bootstrap_dns; do
         if ! grep -q "^${config_key}=" "$AGH_CONFIG_DIR/mode.conf"; then
             config_default_line=$(sed -n "/^${config_key}=/p" "$config_module_root/config/mode.conf" | sed -n '1p')
             [ -n "$config_default_line" ] || return 1

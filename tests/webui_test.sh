@@ -19,6 +19,9 @@ grep -F 'data-command="pause"' "$ROOT/module/webroot/index.html" >/dev/null || f
 grep -F 'id="openAdmin"' "$ROOT/module/webroot/index.html" >/dev/null || fail 'AdGuard Home dashboard control missing'
 grep -F 'id="openQueryLog"' "$ROOT/module/webroot/index.html" >/dev/null || fail 'query log control missing'
 grep -F 'id="showLogs"' "$ROOT/module/webroot/index.html" >/dev/null || fail 'module log control missing'
+grep -F 'data-policy="redirect_ipv6_dns"' "$ROOT/module/webroot/index.html" >/dev/null || fail 'IPv6 policy control missing'
+grep -F 'data-policy="block_853"' "$ROOT/module/webroot/index.html" >/dev/null || fail '853 policy control missing'
+grep -F 'data-policy="bypass_vpn_traffic"' "$ROOT/module/webroot/index.html" >/dev/null || fail 'VPN policy control missing'
 grep -F '/#logs?response_status=all' "$ROOT/module/webroot/app.js" >/dev/null || fail 'query log route missing'
 grep -F 'DIAGNOSTICS} logs' "$ROOT/module/webroot/app.js" >/dev/null || fail 'module log command missing'
 if grep -RE '<(script|link)[^>]+(src|href)="https?://' "$ROOT/module/webroot" 2>/dev/null | grep -v '/internal/insets.css' >/dev/null; then

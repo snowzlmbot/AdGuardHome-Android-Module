@@ -8,9 +8,9 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
-> 当前版本：**0.1.11**
+> 当前版本：**0.1.12**
 >
-> 直接下载：[AdGuardHome-Android-Module-0.1.11-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.11/AdGuardHome-Android-Module-0.1.11-agh-0.107.79.zip)
+> 直接下载：[AdGuardHome-Android-Module-0.1.12-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.12/AdGuardHome-Android-Module-0.1.12-agh-0.107.79.zip)
 
 ## 项目入口
 

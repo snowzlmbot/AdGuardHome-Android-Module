@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.12
+
+- VPN passthrough is enabled by default when a VPN interface is active, keeping VPN servers usable on Wi‑Fi and mobile data.
+- Added real-time policy toggles for IPv6 DNS, encrypted DNS ports, and VPN compatibility.
+- Control actions trigger an immediate supervisor sync; background polling remains power-aware.
+- Added query-log freshness and module-log viewing to the WebUI.
+- Added fixed upstream profiles and safer adapter state persistence.
+
 ## 0.1.11
 
 - Adds a separate native Android Manager app repository with Root-gated status/control and a stable module protocol.

@@ -146,6 +146,8 @@ supervisor_aggregate() {
 
 supervisor_once() {
     ensure_dirs || return 1
+    mkdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || return 0
+    SUPERVISOR_CYCLE=$(( ${SUPERVISOR_CYCLE:-0} + 1 ))
     module_detect_language || MODULE_LANG=en
     supervisor_consume_control
     supervisor_run_worker network || true
@@ -161,7 +163,7 @@ supervisor_once() {
         supervisor_request firewall remove
         supervisor_run_worker firewall || true
     fi
-    if supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf"; then
+    if { [ "${SUPERVISOR_DAEMON_MODE:-0}" != 1 ] || [ "$((SUPERVISOR_CYCLE % 3))" -eq 0 ]; } && supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf"; then
         if [ -f "$AGH_STATE_DIR/paused" ]; then
             printf 'state=paused\nreason=module_paused\n' > "$AGH_STATE_DIR/proxy.state"
         elif [ "$supervisor_core_state" = ready ]; then
@@ -171,7 +173,7 @@ supervisor_once() {
         fi
         chmod 0600 "$AGH_STATE_DIR/proxy.state"
     fi
-    if supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf"; then
+    if { [ "${SUPERVISOR_DAEMON_MODE:-0}" != 1 ] || [ "$((SUPERVISOR_CYCLE % 3))" -eq 0 ]; } && supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf"; then
         if [ -f "$AGH_STATE_DIR/paused" ]; then
             printf 'state=paused\nreason=module_paused\n' > "$AGH_STATE_DIR/file.state"
             chmod 0600 "$AGH_STATE_DIR/file.state"
@@ -180,6 +182,7 @@ supervisor_once() {
         fi
     fi
     supervisor_aggregate
+    rmdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || true
 }
 
 supervisor_daemon_cleanup() {
@@ -187,6 +190,7 @@ supervisor_daemon_cleanup() {
     if [ -f "$supervisor_pid_file" ] && [ "$(sed -n '1p' "$supervisor_pid_file")" = "$$" ]; then
         rm -f "$supervisor_pid_file"
     fi
+    rmdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || true
 }
 
 supervisor_daemon() {
@@ -198,10 +202,12 @@ supervisor_daemon() {
     fi
     rm -f "$AGH_RUN_DIR/stop"
     atomic_write "$supervisor_pid_file" "$$" || return 1
+    SUPERVISOR_DAEMON_MODE=1
+    export SUPERVISOR_DAEMON_MODE
     trap supervisor_daemon_cleanup EXIT INT TERM
     while [ ! -f "$AGH_RUN_DIR/stop" ]; do
         supervisor_once || log_message supervisor 'supervisor cycle failed'
-        sleep 5
+        sleep "${SUPERVISOR_INTERVAL:-10}"
     done
     supervisor_request core stop
     supervisor_request firewall remove
