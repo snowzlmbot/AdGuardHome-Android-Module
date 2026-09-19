@@ -4,7 +4,7 @@
 
 A modular AdGuard Home integration for rooted Android devices using Magisk or KernelSU.
 
-> Current version: **0.1.8**
+> Current version: **0.1.9**
 
 KernelSU users can open the module WebUI to view status, DNS mode, network/VPN state, firewall state, filter readiness, and recent redacted logs. Magisk users can use the module action button to open the local dashboard and view the generated login credential.
 
