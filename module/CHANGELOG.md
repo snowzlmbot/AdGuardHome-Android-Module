@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.15
+
+- Reintroduced the full second-maintainer file-ad cleanup manifest with provenance and safe blocked entries for protected paths.
+- Added signed-by-checksum remote rule refresh and persistent manifest delivery from the module WebUI.
+- Added package-filtered one-shot cleanup for newly installed apps; absent apps never create placeholder folders.
+- Changed changed-target handling to warn and continue processing other installed apps instead of blocking the whole adapter.
+- Added file-rule metrics and Android toybox compatibility for state writes.
+
 ## 0.1.14
 
 - Added a repository-built AdGuard Home 0.107.79 binary with guarded five-second query-log refresh for the legacy and current dashboards.

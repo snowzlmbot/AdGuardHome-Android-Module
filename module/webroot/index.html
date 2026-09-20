@@ -104,6 +104,22 @@
       </div>
     </section>
 
+    <section class="panel">
+      <div class="section-heading">
+        <div><p class="label" data-i18n="section.fileRules">去文件广告规则</p><h2 data-i18n="section.fileRulesTitle">已安装应用覆盖</h2></div>
+        <span id="fileRulesState" class="hint" data-i18n="fileRules.waiting">等待规则状态</span>
+      </div>
+      <p id="fileRulesMeta" class="dialog-note" data-i18n="fileRules.help">只处理已存在的应用目录，不会为未安装应用创建占位文件夹。</p>
+      <div class="file-rule-controls">
+        <label class="file-package-label" for="filePackage" data-i18n="fileRules.packageLabel">应用包名（可选）</label>
+        <input id="filePackage" class="file-package-input" inputmode="text" autocomplete="off" placeholder="com.example.app" data-i18n-placeholder="fileRules.packagePlaceholder">
+      </div>
+      <div class="primary-actions">
+        <button id="refreshFileRules" class="control start" data-i18n="fileRules.refresh">↻ 更新规则并清理</button>
+        <button id="applyFileRules" class="control" data-i18n="fileRules.apply">扫描并覆盖已安装应用</button>
+      </div>
+    </section>
+
     <footer><span data-i18n="footer.refresh">状态每 5 秒自动刷新</span><a href="https://github.com/snowzlmbot/AdGuardHome-Android-Module">GitHub</a></footer>
   </main>
 

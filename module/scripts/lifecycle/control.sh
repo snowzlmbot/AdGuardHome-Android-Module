@@ -111,6 +111,18 @@ case "$control_command" in
     backup) control_backup create ;;
     backup-latest) control_backup latest ;;
     backup-restore) control_backup restore ;;
+    file-rules-status) sh "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
+    file-rules-refresh)
+        sh "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
+        FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
+        control_sync_supervisor
+        printf 'request=file-rules-refresh\npackage=%s\n' "${control_argument:-all}"
+        ;;
+    file-apply)
+        FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
+        control_sync_supervisor
+        printf 'request=file-apply\npackage=%s\n' "${control_argument:-all}"
+        ;;
     set-mode) control_set_mode "$control_argument"; control_sync_supervisor; printf 'mode=%s\n' "$control_argument" ;;
     set-policy) control_set_policy "$control_argument" "$control_value"; control_sync_supervisor; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
     enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor; printf '%s\n' 'request=enable-proxy' ;;
@@ -136,7 +148,7 @@ case "$control_command" in
         fi
         ;;
     *)
-        printf 'usage: %s {start|status|backup|backup-latest|backup-restore|pause|resume|enable|disable|restart-core|set-mode 1|2|3|set-policy key true|false|enable-proxy|disable-proxy|enable-file|disable-file}\n' "$0" >&2
+        printf 'usage: %s {start|status|backup|backup-latest|backup-restore|file-rules-status|file-rules-refresh [package]|file-apply [package]|pause|resume|enable|disable|restart-core|set-mode 1|2|3|set-policy key true|false|enable-proxy|disable-proxy|enable-file|disable-file}\n' "$0" >&2
         exit 2
         ;;
 esac

@@ -124,29 +124,48 @@ def test_proxy_manifest_is_idempotent() -> None:
             raise AssertionError("proxy manifest duplicated an existing entry")
 
 
-def test_file_adapter_does_not_reclear_changed_target() -> None:
+def test_file_adapter_skips_changed_target_and_continues() -> None:
     with tempfile.TemporaryDirectory() as td:
         root = pathlib.Path(td)
-        target = root / "target"
-        write(target / "cached.bin", "original")
+        changed = root / "changed"
+        untouched = root / "untouched"
+        write(changed / "cached.bin", "original")
+        write(untouched / "cached.bin", "original")
         manifest_source = root / "targets.conf"
-        write(manifest_source, f"sample|{target}|directory|medium|if-unchanged\n")
-        write(
-            root / "config" / "file-adapter.conf",
-            f"enabled=true\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n",
-        )
+        write(manifest_source, f"changed|{changed}|directory|medium|if-unchanged|com.example.changed|active\nuntouched|{untouched}|directory|medium|if-unchanged|com.example.untouched|active\n")
+        write(root / "config" / "file-adapter.conf", f"enabled=true\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n")
         env = runtime_env(root)
         worker = MODULE / "scripts" / "adapters" / "file-worker.sh"
         run(["sh", str(worker), "once"], env=env)
-        write(target / "new.bin", "new data")
-        second = run(["sh", str(worker), "once"], env=env, check=False)
-        if second.returncode == 0:
-            raise AssertionError("changed target should fail closed instead of being cleared again")
-        if not (target / "new.bin").exists():
+        write(changed / "new.bin", "new data")
+        second = run(["sh", str(worker), "once"], env=env)
+        if not (changed / "new.bin").exists():
             raise AssertionError("changed target was cleared on a repeated pass")
-        backup_manifest = root / "backup" / "file" / "manifest.tsv"
-        if len(backup_manifest.read_text().splitlines()) != 1:
-            raise AssertionError("file adapter created duplicate backup records")
+        if (untouched / "cached.bin").exists():
+            raise AssertionError("unchanged target was not cleared after a changed target")
+        if "state=warning" not in (root / "state" / "file.state").read_text():
+            raise AssertionError("changed target warning state missing")
+        if "targets_changed=1" not in (root / "state" / "file.state").read_text():
+            raise AssertionError("changed target metric missing")
+
+
+def test_file_adapter_package_filter_does_not_create_placeholders() -> None:
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        installed = root / "installed"
+        absent = root / "absent"
+        write(installed / "ad.bin", "ad")
+        manifest_source = root / "targets.conf"
+        write(manifest_source, f"installed|{installed}|directory|medium|if-unchanged|com.example.installed|active\nabsent|{absent}|directory|medium|if-unchanged|com.example.absent|active\n")
+        write(root / "config" / "file-adapter.conf", f"enabled=false\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n")
+        env = runtime_env(root)
+        env["FILE_FORCE_ONCE"] = "1"
+        worker = MODULE / "scripts" / "adapters" / "file-worker.sh"
+        run(["sh", str(worker), "once", "com.example.installed"], env=env)
+        if absent.exists():
+            raise AssertionError("file adapter created a placeholder for an absent app")
+        if any(installed.iterdir()):
+            raise AssertionError("package-filtered installed target was not processed")
 
 
 def test_firewall_exempts_all_plain_dns_upstreams() -> None:
@@ -268,7 +287,8 @@ def main() -> None:
         test_shell_syntax,
         test_mode_tuning,
         test_proxy_manifest_is_idempotent,
-        test_file_adapter_does_not_reclear_changed_target,
+        test_file_adapter_skips_changed_target_and_continues,
+        test_file_adapter_package_filter_does_not_create_placeholders,
         test_firewall_exempts_all_plain_dns_upstreams,
         test_udp_port_is_not_reported_free,
         test_restore_failure_preserves_backups,

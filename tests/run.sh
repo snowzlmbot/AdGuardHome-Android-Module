@@ -19,6 +19,7 @@ for test_script in \
     firewall_test.sh \
     proxy_adapter_test.sh \
     file_adapter_test.sh \
+    file_rules_test.sh \
     diagnostics_test.sh \
     uninstall_test.sh \
     webui_test.sh \

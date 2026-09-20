@@ -12,7 +12,7 @@
 
 感谢 [@liuzq2002](https://github.com/liuzq2002) 持续维护 [Adguard-Home-For-Magisk-Mod](https://github.com/liuzq2002/Adguard-Home-For-Magisk-Mod)。
 
-该项目在模块生命周期、动态管理端口、代理适配、诊断信息、更新元数据和卸载流程方面提供了有价值的实践经验。
+该项目在模块生命周期、动态管理端口、代理适配、诊断信息、更新元数据和卸载流程方面提供了有价值的实践经验。0.1.15 的去文件广告基础清单按其 `Adguardhome/scripts/NoAdsService.sh`（commit `ce9c57268614ee939fa25426e9912b62eac9cfed`）导入，并对受保护路径做了 blocked 安全隔离。
 
 ## Upstream projects
 

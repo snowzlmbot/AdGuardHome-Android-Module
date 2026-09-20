@@ -30,6 +30,7 @@ jobs:
           sh tests/firewall_test.sh
           sh tests/proxy_adapter_test.sh
           sh tests/file_adapter_test.sh
+          sh tests/file_rules_test.sh
           sh tests/diagnostics_test.sh
           sh tests/uninstall_test.sh
           sh tests/install_options_test.sh
