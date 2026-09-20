@@ -36,7 +36,7 @@ grep -F 'enhanced-mode: fake-ip' "$proxy_file" >/dev/null || fail 'proxy origina
 
 sh "$ROOT/module/scripts/adapters/proxy-worker.sh" once || fail 'second proxy enable failed'
 printf '%s\n' '# user edit' >> "$proxy_file"
-sh "$ROOT/module/scripts/adapters/proxy-worker.sh" --clean || fail 'proxy clean should report but not fail'
+if sh "$ROOT/module/scripts/adapters/proxy-worker.sh" --clean; then fail 'proxy clean should report restore failure'; fi
 grep -F '# user edit' "$proxy_file" >/dev/null || fail 'user edit was overwritten'
 grep -F 'state=warning' "$AGH_STATE_DIR/proxy.state" >/dev/null || fail 'proxy warning state missing'
 

@@ -52,8 +52,8 @@ network_valid_ip_list() {
 
 network_default_interface() {
     NETWORK_INTERFACE=$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | sed -n '1p')
-    [ -n "$NETWORK_INTERFACE" ] || NETWORK_INTERFACE=$(ip route 2>/dev/null | awk '$1 == "default" {for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
-    [ -n "$NETWORK_INTERFACE" ] || NETWORK_INTERFACE=$(ip -6 route 2>/dev/null | awk '$1 == "default" {for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+    [ -n "$NETWORK_INTERFACE" ] || NETWORK_INTERFACE=$(ip route 2>/dev/null | sed -n 's/^default.* dev \([^ ]*\).*/\1/p' | sed -n '1p')
+    [ -n "$NETWORK_INTERFACE" ] || NETWORK_INTERFACE=$(ip -6 route 2>/dev/null | sed -n 's/^default.* dev \([^ ]*\).*/\1/p' | sed -n '1p')
 }
 
 network_read_android() {
@@ -82,8 +82,18 @@ network_read_android() {
     fi
     network_dns_line=$(sed -n 's/.*DnsAddresses: \[\([^]]*\)\].*/\1/p' "$network_dump" | sed -n '1p' | tr -d ' /')
     network_dns_tokens=$(printf '%s\n' "$network_dns_line" | tr ',' '\n')
-    NETWORK_DNS4=$(printf '%s\n' "$network_dns_tokens" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | awk 'BEGIN{first=1}{if(!first)printf ","; printf "%s",$0; first=0}END{if(!first)printf "\n"}')
-    NETWORK_DNS6=$(printf '%s\n' "$network_dns_tokens" | grep ':' | awk 'BEGIN{first=1}{if(!first)printf ","; printf "%s",$0; first=0}END{if(!first)printf "\n"}')
+    NETWORK_DNS4=
+    NETWORK_DNS6=
+    for network_address in $network_dns_tokens; do
+        case "$network_address" in
+            *.*.*.*)
+                case ",$NETWORK_DNS4," in *",$network_address,"*) ;; *) NETWORK_DNS4=${NETWORK_DNS4:+$NETWORK_DNS4,}$network_address ;; esac
+                ;;
+            *:*)
+                case ",$NETWORK_DNS6," in *",$network_address,"*) ;; *) NETWORK_DNS6=${NETWORK_DNS6:+$NETWORK_DNS6,}$network_address ;; esac
+                ;;
+        esac
+    done
     network_dump_has_data=false
     [ -s "$network_dump" ] && network_dump_has_data=true
     rm -f "$network_dump"

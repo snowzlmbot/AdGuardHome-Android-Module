@@ -33,10 +33,10 @@ firewall_state_write() {
         printf 'v4_redirect=%s\n' "${FW_V4_REDIRECT:-false}"
         printf 'v6_dns_block=%s\n' "${FW_V6_DNS_BLOCK:-false}"
         printf 'dot_block=%s\n' "${FW_DOT_BLOCK:-false}"
-    } > "$firewall_tmp"
+    } > "$firewall_tmp" || return 1
     chmod 0600 "$firewall_tmp"
-    sync
-    mv -f "$firewall_tmp" "$AGH_STATE_DIR/firewall.state"
+    agh_sync
+    agh_move "$firewall_tmp" "$AGH_STATE_DIR/firewall.state"
 }
 
 firewall_exec() {
@@ -109,17 +109,19 @@ firewall_insert_jump() {
 }
 
 firewall_mode_exception() {
-    firewall_mode_target=$1
-    [ -n "$firewall_mode_target" ] || return 0
-    firewall_mode_host=$(printf '%s' "$firewall_mode_target" | sed 's/:.*//')
-    firewall_mode_port=$(printf '%s' "$firewall_mode_target" | sed 's/^[^:]*://')
-    case "$firewall_mode_host" in
-        *[!0-9.]*|'' ) return 1 ;;
-    esac
-    [ "$firewall_mode_port" -ge 1 ] 2>/dev/null || return 1
-    [ "$firewall_mode_port" -le 65535 ] 2>/dev/null || return 1
-    firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p udp --dport 53 -j RETURN || return 1
-    firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p tcp --dport 53 -j RETURN || return 1
+    firewall_mode_targets=$1
+    [ -n "$firewall_mode_targets" ] || return 0
+    for firewall_mode_target in $(printf '%s' "$firewall_mode_targets" | tr ',' ' '); do
+        firewall_mode_host=$(printf '%s' "$firewall_mode_target" | sed 's/:.*//')
+        firewall_mode_port=$(printf '%s' "$firewall_mode_target" | sed 's/^[^:]*://')
+        case "$firewall_mode_host" in
+            *[!0-9.]*|'' ) return 1 ;;
+        esac
+        [ "$firewall_mode_port" -ge 1 ] 2>/dev/null || return 1
+        [ "$firewall_mode_port" -le 65535 ] 2>/dev/null || return 1
+        firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p udp --dport 53 -j RETURN || return 1
+        firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p tcp --dport 53 -j RETURN || return 1
+    done
 }
 
 firewall_add_vpn_bypass() {
@@ -149,6 +151,7 @@ firewall_ensure() {
     FW_V6_DOT_BLOCK=$(firewall_config_value block_ipv6_dot); [ -n "$FW_V6_DOT_BLOCK" ] || FW_V6_DOT_BLOCK=true
     FW_V4_DOQ_BLOCK=$(firewall_config_value block_ipv4_doq); [ -n "$FW_V4_DOQ_BLOCK" ] || FW_V4_DOQ_BLOCK=true
     FW_V6_DOQ_BLOCK=$(firewall_config_value block_ipv6_doq); [ -n "$FW_V6_DOQ_BLOCK" ] || FW_V6_DOQ_BLOCK=true
+    FW_NETWORK_STATE=$(firewall_state_value "$AGH_STATE_DIR/network.state" state); [ -n "$FW_NETWORK_STATE" ] || FW_NETWORK_STATE=unknown
     FW_NETWORK_MODE=$(firewall_state_value "$AGH_STATE_DIR/network.state" mode); [ -n "$FW_NETWORK_MODE" ] || FW_NETWORK_MODE=unknown
     FW_NETWORK_TYPE=$(firewall_state_value "$AGH_STATE_DIR/network.state" network); [ -n "$FW_NETWORK_TYPE" ] || FW_NETWORK_TYPE=unknown
     FW_NETWORK_VPN=$(firewall_state_value "$AGH_STATE_DIR/network.state" vpn); [ -n "$FW_NETWORK_VPN" ] || FW_NETWORK_VPN=unknown
@@ -156,12 +159,18 @@ firewall_ensure() {
     FW_BYPASS_VPN_ENCRYPTED=$(firewall_config_value bypass_vpn_encrypted_dns); [ -n "$FW_BYPASS_VPN_ENCRYPTED" ] || FW_BYPASS_VPN_ENCRYPTED=true
     FW_BYPASS_VPN_TRAFFIC=$(firewall_config_value bypass_vpn_traffic); [ -n "$FW_BYPASS_VPN_TRAFFIC" ] || FW_BYPASS_VPN_TRAFFIC=true
 
+    if [ "$FW_NETWORK_STATE" != ready ]; then
+        firewall_remove
+        firewall_state_write degraded network_not_ready
+        return 0
+    fi
+
     firewall_remove_jump_all "$firewall_binary_v4" nat "$FW_V4_NAT"
     firewall_remove_jump_all "$firewall_binary_v4" filter "$FW_V4_FILTER"
     firewall_remove_jump_all "$firewall_binary_v6" filter "$FW_V6_FILTER"
     if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_TRAFFIC" = true ]; then
         firewall_remove
-        firewall_state_write ready vpn_passthrough
+        firewall_state_write bypassed vpn_passthrough
         return 0
     fi
     firewall_ensure_chain "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_nat_chain; return 1; }

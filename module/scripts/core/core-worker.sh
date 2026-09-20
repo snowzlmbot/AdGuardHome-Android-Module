@@ -28,8 +28,8 @@ core_state_write() {
         printf 'retry_in=%s\n' "${CORE_RETRY_IN:-0}"
     } > "$core_state_tmp" || return 1
     chmod 0600 "$core_state_tmp"
-    sync
-    mv -f "$core_state_tmp" "$AGH_STATE_DIR/core.state"
+    agh_sync
+    agh_move "$core_state_tmp" "$AGH_STATE_DIR/core.state"
 }
 
 core_probe_port() {
@@ -70,8 +70,8 @@ core_prepare_runtime_config() {
     sed -i "/^http:/,/^[^[:space:]]/ s#^[[:space:]]*address: 127.0.0.1:[0-9][0-9]*#  address: 127.0.0.1:$PORT_WEB#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
     sed -i "/^dns:/,/^[^[:space:]]/ s#^[[:space:]]*port: [0-9][0-9]*#  port: $PORT_DNS#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
     chmod 0600 "$core_config_tmp"
-    sync
-    mv -f "$core_config_tmp" "$core_runtime_config" || return 1
+    agh_sync
+    agh_move "$core_config_tmp" "$core_runtime_config" || return 1
     CORE_RUNTIME_CONFIG=$core_runtime_config
 }
 
@@ -128,11 +128,12 @@ core_apply_querylog_defaults() {
     core_querylog_file="$AGH_CONFIG_DIR/AdGuardHome.yaml"
     [ -f "$core_querylog_file" ] || return 1
     core_querylog_tmp="$core_querylog_file.querylog.$$"
-    sed -e '/^querylog:/,/^[^[:space:]]/ s/^  size_memory: 1000$/  size_memory: 100/' \
+    sed -e '/^querylog:/,/^[^[:space:]]/ s/^  size_memory: 100$/  size_memory: 1000/' \
+        -e '/^querylog:/,/^[^[:space:]]/ s/^  interval: 90d$/  interval: 7d/' \
         -e '/^querylog:/,/^[^[:space:]]/ s/^  file_enabled: false$/  file_enabled: true/' \
         "$core_querylog_file" > "$core_querylog_tmp" || { rm -f "$core_querylog_tmp"; return 1; }
-    sync
-    mv -f "$core_querylog_tmp" "$core_querylog_file"
+    agh_sync
+    agh_move "$core_querylog_tmp" "$core_querylog_file"
 }
 
 core_start_process() {
@@ -185,14 +186,22 @@ core_start() {
         rm -f "$AGH_CONFIG_DIR/AdGuardHome.yaml"
     else
         core_apply_querylog_defaults || { core_state_write failed querylog_config; return 1; }
-        if [ ! -f "$AGH_STATE_DIR/upstream-policy.conf" ]; then
-            if grep -q 'dns10.quad9.net' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then
+        core_policy_mode=$(sed -n 's/^mode=//p' "$AGH_STATE_DIR/upstream-policy.conf" 2>/dev/null | sed -n '1p')
+        case "$core_policy_mode" in
+            1|2|3)
                 core_apply_selected_mode || { core_state_write failed mode_configuration; return 1; }
-            else
-                printf 'version=1\nmode=custom\n' > "$AGH_STATE_DIR/upstream-policy.conf"
-                chmod 0600 "$AGH_STATE_DIR/upstream-policy.conf"
-            fi
-        fi
+                ;;
+            *)
+                if [ ! -f "$AGH_STATE_DIR/upstream-policy.conf" ]; then
+                    if grep -q 'dns10.quad9.net' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then
+                        core_apply_selected_mode || { core_state_write failed mode_configuration; return 1; }
+                    else
+                        printf 'version=1\nmode=custom\n' > "$AGH_STATE_DIR/upstream-policy.conf"
+                        chmod 0600 "$AGH_STATE_DIR/upstream-policy.conf"
+                    fi
+                fi
+                ;;
+        esac
         core_prepare_runtime_config || { core_state_write failed runtime_config; return 1; }
     fi
     export SSL_CERT_DIR=${SSL_CERT_DIR:-/system/etc/security/cacerts/}

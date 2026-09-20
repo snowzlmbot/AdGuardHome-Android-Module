@@ -2,7 +2,7 @@
 
 backup_hash() {
     backup_hash_file=$1
-    sha256sum "$backup_hash_file" 2>/dev/null | awk '{print $1}'
+    sha256sum "$backup_hash_file" 2>/dev/null | cut -d ' ' -f1
 }
 
 backup_metadata() {
@@ -26,7 +26,7 @@ backup_restore_metadata() {
 
 backup_path_name() {
     backup_input=$1
-    BACKUP_NAME=$(printf '%s' "$backup_input" | sha256sum | awk '{print $1}')
+    BACKUP_NAME=$(printf '%s' "$backup_input" | sha256sum | cut -d ' ' -f1)
 }
 
 backup_content_hash() {
@@ -35,7 +35,7 @@ backup_content_hash() {
     if [ "$backup_content_type" = directory ]; then
         find "$backup_content_path" -type f -print 2>/dev/null | sort | while IFS= read -r backup_file; do
             sha256sum "$backup_file"
-        done | sha256sum | awk '{print $1}'
+        done | sha256sum | cut -d ' ' -f1
     else
         backup_hash "$backup_content_path"
     fi

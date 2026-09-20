@@ -25,9 +25,9 @@ supervisor_request() {
     supervisor_request_dir="$AGH_RUN_DIR/$supervisor_component"
     mkdir -p "$supervisor_request_dir"
     supervisor_tmp="$supervisor_request_dir/.request.$$"
-    printf '%s\n' "$supervisor_action" > "$supervisor_tmp"
-    sync
-    mv -f "$supervisor_tmp" "$supervisor_request_dir/request"
+    printf '%s\n' "$supervisor_action" > "$supervisor_tmp" || return 1
+    agh_sync
+    agh_move "$supervisor_tmp" "$supervisor_request_dir/request"
 }
 
 supervisor_enabled() {
@@ -123,7 +123,7 @@ supervisor_update_module_description() {
     supervisor_module_prop=${MODULE_PROP_FILE:-$MODDIR/module.prop}
     if [ -f "$supervisor_module_prop" ]; then
         supervisor_tmp_prop="${supervisor_module_prop%/*}/.module.prop.$$"
-        sed "s#^description=.*#description=$supervisor_description#" "$supervisor_module_prop" > "$supervisor_tmp_prop" && mv -f "$supervisor_tmp_prop" "$supervisor_module_prop"
+        sed "s#^description=.*#description=$supervisor_description#" "$supervisor_module_prop" > "$supervisor_tmp_prop" && agh_move "$supervisor_tmp_prop" "$supervisor_module_prop"
         chmod 0644 "$supervisor_module_prop" 2>/dev/null || true
     fi
 }
@@ -137,9 +137,9 @@ supervisor_aggregate() {
         printf 'proxy=%s\n' "$(supervisor_state_value "$AGH_STATE_DIR/proxy.state" state || printf 'disabled')"
         printf 'file_adapter=%s\n' "$(supervisor_state_value "$AGH_STATE_DIR/file.state" state || printf 'disabled')"
         printf 'paused=%s\n' "$( [ -f "$AGH_STATE_DIR/paused" ] && printf true || printf false )"
-    } > "$supervisor_tmp"
-    sync
-    mv -f "$supervisor_tmp" "$AGH_STATE_DIR/overall.state"
+    } > "$supervisor_tmp" || return 1
+    agh_sync
+    agh_move "$supervisor_tmp" "$AGH_STATE_DIR/overall.state"
     chmod 0600 "$AGH_STATE_DIR/overall.state"
     supervisor_update_module_description
 }

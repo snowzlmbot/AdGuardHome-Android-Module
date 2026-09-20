@@ -11,8 +11,8 @@ atomic_write() {
         rm -f "$atomic_tmp"
         return 1
     }
-    sync
-    mv -f "$atomic_tmp" "$atomic_target" || {
+    agh_sync
+    agh_move "$atomic_tmp" "$atomic_target" || {
         rm -f "$atomic_tmp"
         return 1
     }
@@ -28,8 +28,8 @@ atomic_copy() {
         rm -f "$atomic_tmp"
         return 1
     }
-    sync
-    mv -f "$atomic_tmp" "$atomic_target" || {
+    agh_sync
+    agh_move "$atomic_tmp" "$atomic_target" || {
         rm -f "$atomic_tmp"
         return 1
     }

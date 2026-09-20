@@ -45,7 +45,7 @@ printf 'state=ready\nmode=1\nnetwork=mobile\nvpn=true\ndns4=198.51.100.1\ndns6=\
 : > "$fixture/iptables.log"
 : > "$fixture/ip6tables.log"
 IPTABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/iptables" IP6TABLES_BIN="$ROOT/tests/fixtures/iptables-recording-bin/ip6tables" sh "$ROOT/module/scripts/firewall/firewall-worker.sh" once || fail 'VPN bypass ensure failed'
-grep -F 'state=ready' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'VPN passthrough state not ready'
+grep -F 'state=bypassed' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'VPN passthrough state not bypassed'
 grep -F 'reason=vpn_passthrough' "$AGH_STATE_DIR/firewall.state" >/dev/null || fail 'VPN passthrough reason missing'
 if grep -E -- ' -N AGHADM4N| -A AGHADM4N| -I AGHADM4N' "$fixture/iptables.log" >/dev/null; then fail 'VPN traffic should bypass module firewall chain'; fi
 

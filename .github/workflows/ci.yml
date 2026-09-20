@@ -38,6 +38,8 @@ jobs:
       - name: Run packaging test
         shell: sh
         run: sh tests/package_test.sh
+      - name: Run repair regression
+        run: python3 tests/repair_regression.py
       - name: Run BusyBox ash checks
         shell: sh
         run: BUSYBOX_BIN=busybox tests/static/check-shell.sh .

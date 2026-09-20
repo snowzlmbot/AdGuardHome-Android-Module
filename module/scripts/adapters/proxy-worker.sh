@@ -13,10 +13,10 @@ proxy_state_write() {
     proxy_state_value=$1
     proxy_state_reason=${2:-}
     proxy_state_tmp="$AGH_STATE_DIR/.proxy.state.$$"
-    printf 'state=%s\nreason=%s\n' "$proxy_state_value" "$proxy_state_reason" > "$proxy_state_tmp"
+    printf 'state=%s\nreason=%s\n' "$proxy_state_value" "$proxy_state_reason" > "$proxy_state_tmp" || return 1
     chmod 0600 "$proxy_state_tmp"
-    sync
-    mv -f "$proxy_state_tmp" "$AGH_STATE_DIR/proxy.state"
+    agh_sync
+    agh_move "$proxy_state_tmp" "$AGH_STATE_DIR/proxy.state"
 }
 
 proxy_config_value() {
@@ -38,7 +38,33 @@ proxy_allowed() {
 proxy_hash_manifest_line() {
     proxy_manifest_file=$1
     proxy_manifest_path=$2
-    grep -F "^${proxy_manifest_path}|" "$proxy_manifest_file" >/dev/null 2>&1
+    PROXY_MANIFEST_BEFORE=
+    PROXY_MANIFEST_AFTER=
+    [ -f "$proxy_manifest_file" ] || return 1
+    while IFS='|' read -r proxy_path proxy_backup proxy_before _ _ _ proxy_after; do
+        if [ "$proxy_path" = "$proxy_manifest_path" ]; then
+            PROXY_MANIFEST_BEFORE=$proxy_before
+            PROXY_MANIFEST_AFTER=$proxy_after
+            return 0
+        fi
+    done < "$proxy_manifest_file"
+    return 1
+}
+
+proxy_manifest_update_after() {
+    proxy_manifest_file=$1
+    proxy_manifest_path=$2
+    proxy_manifest_after=$3
+    proxy_manifest_tmp="$proxy_manifest_file.tmp.$$"
+    while IFS='|' read -r proxy_path proxy_backup proxy_before proxy_mode proxy_uid proxy_gid proxy_after; do
+        if [ "$proxy_path" = "$proxy_manifest_path" ]; then
+            printf '%s|%s|%s|%s|%s|%s|%s\n' "$proxy_path" "$proxy_backup" "$proxy_before" "$proxy_mode" "$proxy_uid" "$proxy_gid" "$proxy_manifest_after"
+        else
+            printf '%s|%s|%s|%s|%s|%s|%s\n' "$proxy_path" "$proxy_backup" "$proxy_before" "$proxy_mode" "$proxy_uid" "$proxy_gid" "$proxy_after"
+        fi
+    done < "$proxy_manifest_file" > "$proxy_manifest_tmp"
+    agh_sync
+    agh_move "$proxy_manifest_tmp" "$proxy_manifest_file"
 }
 
 proxy_backup_file() {
@@ -59,7 +85,8 @@ proxy_modify_file() {
     valid_port "$proxy_dns_port" 2>/dev/null || proxy_dns_port=5591
     proxy_tmp="$proxy_file.agh.$$"
     sed -e 's/^[[:space:]]*enhanced-mode:.*/  enhanced-mode: redir-host/' -e "/^[[:space:]]*nameserver:/a\\    - 127.0.0.1:$proxy_dns_port" "$proxy_file" > "$proxy_tmp" || { rm -f "$proxy_tmp"; return 1; }
-    mv -f "$proxy_tmp" "$proxy_file" || return 1
+    agh_sync
+    agh_move "$proxy_tmp" "$proxy_file" || return 1
     PROXY_AFTER=$(backup_hash "$proxy_file")
 }
 
@@ -85,7 +112,12 @@ proxy_process_file() {
         proxy_path_name="$proxy_file"
         backup_path_name "$proxy_path_name"
         proxy_pending="$AGH_BACKUP_DIR/proxy/$BACKUP_NAME.pending"
-        [ "$proxy_current_hash" = "$(sed -n "s#^${proxy_file}|[^|]*|[^|]*|\([^|]*\)|.*#\1#p" "$proxy_manifest_file" | sed -n '1p')" ] && return 0
+        [ "$proxy_current_hash" = "$PROXY_MANIFEST_AFTER" ] && return 0
+        if [ "$proxy_current_hash" = "$PROXY_MANIFEST_BEFORE" ]; then
+            proxy_modify_file "$proxy_file" || return 1
+            proxy_manifest_update_after "$proxy_manifest_file" "$proxy_file" "$PROXY_AFTER" || return 1
+            return 0
+        fi
         return 1
     fi
     proxy_backup_file "$proxy_file" || return 1
@@ -109,7 +141,11 @@ proxy_clean() {
             proxy_restore_warning=1
         fi
     done < "$proxy_manifest_file"
-    if [ "$proxy_restore_warning" -eq 1 ]; then proxy_state_write warning user_modified_or_restore_failed; else proxy_state_write ready restored; fi
+    if [ "$proxy_restore_warning" -eq 1 ]; then
+        proxy_state_write warning user_modified_or_restore_failed
+        return 1
+    fi
+    proxy_state_write ready restored
     return 0
 }
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.14
+
+- Added a repository-built AdGuard Home 0.107.79 binary with guarded five-second query-log refresh for the legacy and current dashboards.
+- Added encrypted-upstream fallback, shorter failure timeout, and optimistic-cache defaults to reduce cold-query stalls.
+- Added network-readiness fail-open behavior, complete upstream firewall exemptions, and an explicit VPN-bypassed state.
+- Fixed proxy/file adapter idempotency, Android command-environment compatibility, restore failure propagation, and safe uninstall behavior.
+
 ## 0.1.13
 
 - Added one-tap configuration backup from KernelSU WebUI.

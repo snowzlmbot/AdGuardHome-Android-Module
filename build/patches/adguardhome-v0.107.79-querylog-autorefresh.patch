@@ -1,0 +1,121 @@
+diff --git a/client/src/components/Logs/index.tsx b/client/src/components/Logs/index.tsx
+index 8f9013b..b4edfd3 100644
+--- a/client/src/components/Logs/index.tsx
++++ b/client/src/components/Logs/index.tsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useState } from 'react';
++import React, { useEffect, useRef, useState } from 'react';
+ import { Trans } from 'react-i18next';
+ 
+ import Modal from 'react-modal';
+@@ -8,7 +8,12 @@ import { useHistory } from 'react-router-dom';
+ import queryString from 'query-string';
+ import classNames from 'classnames';
+ import { FormProvider, useForm } from 'react-hook-form';
+-import { BLOCK_ACTIONS, DEFAULT_LOGS_FILTER, MEDIUM_SCREEN_SIZE } from '../../helpers/constants';
++import {
++    BLOCK_ACTIONS,
++    DEFAULT_LOGS_FILTER,
++    MEDIUM_SCREEN_SIZE,
++    QUERY_LOGS_PAGE_LIMIT,
++} from '../../helpers/constants';
+ 
+ import Loading from '../ui/Loading';
+ 
+@@ -21,7 +26,13 @@ import { getClients } from '../../actions';
+ import { getDnsConfig } from '../../actions/dnsConfig';
+ import { getAccessList } from '../../actions/access';
+ import { getAllBlockedServices } from '../../actions/services';
+-import { getLogsConfig, resetFilteredLogs, setFilteredLogs, toggleDetailedLogs } from '../../actions/queryLogs';
++import {
++    getLogsConfig,
++    refreshFilteredLogs,
++    resetFilteredLogs,
++    setFilteredLogs,
++    toggleDetailedLogs,
++} from '../../actions/queryLogs';
+ 
+ import InfiniteTable from './InfiniteTable';
+ import './Logs.css';
+@@ -35,6 +46,8 @@ export type SearchFormValues = {
+     response_status: string;
+ };
+ 
++const QUERY_LOGS_AUTO_REFRESH_INTERVAL_MS = 5000;
++
+ const processContent = (data: any, _buttonType: string) =>
+     Object.entries(data).map(([key, value]) => {
+         if (!value) {
+@@ -89,6 +102,7 @@ const Logs = () => {
+     const filter = useSelector((state: RootState) => state.queryLogs.filter, shallowEqual);
+ 
+     const logs = useSelector((state: RootState) => state.queryLogs.logs, shallowEqual);
++    const processingGetLogsRef = useRef(processingGetLogs);
+ 
+     const search = search_url_param || filter?.search || '';
+     const response_status = response_status_url_param || filter?.response_status || '';
+@@ -125,6 +139,25 @@ const Logs = () => {
+         })();
+     }, [response_status, search]);
+ 
++    useEffect(() => {
++        processingGetLogsRef.current = processingGetLogs;
++    }, [processingGetLogs]);
++
++    useEffect(() => {
++        const intervalId = window.setInterval(() => {
++            const canRefresh =
++                document.visibilityState === 'visible' &&
++                !processingGetLogsRef.current &&
++                logs.length <= QUERY_LOGS_PAGE_LIMIT;
++
++            if (canRefresh) {
++                dispatch(refreshFilteredLogs());
++            }
++        }, QUERY_LOGS_AUTO_REFRESH_INTERVAL_MS);
++
++        return () => window.clearInterval(intervalId);
++    }, [dispatch, logs.length]);
++
+     const mediaQuery = window.matchMedia(`(max-width: ${MEDIUM_SCREEN_SIZE}px)`);
+     const mediaQueryHandler = (e: any) => {
+         setIsSmallScreen(e.matches);
+diff --git a/client_v2/src/components/QueryLog/QueryLog.tsx b/client_v2/src/components/QueryLog/QueryLog.tsx
+index 1b67e4d..465e10a 100644
+--- a/client_v2/src/components/QueryLog/QueryLog.tsx
++++ b/client_v2/src/components/QueryLog/QueryLog.tsx
+@@ -1,4 +1,4 @@
+-import { createSignal, createEffect, onMount, Show, For } from 'solid-js';
++import { createSignal, createEffect, onMount, onCleanup, Show, For } from 'solid-js';
+ import cn from 'clsx';
+ import { useNavigate, useLocation } from '@solidjs/router';
+ 
+@@ -24,6 +24,7 @@ import {
+ import { servicesState, getAllBlockedServices, allowBlockedService } from 'panel/stores/services';
+ import {
+     DEFAULT_LOGS_FILTER,
++    QUERY_LOGS_PAGE_LIMIT,
+     QUERY_LOG_REASON_FILTER_QUERIES,
+     QUERY_LOG_STATUS_FILTER_QUERIES,
+ } from 'panel/helpers/constants';
+@@ -66,6 +67,20 @@ export const QueryLog = () => {
+         getClients();
+         getFilteringStatus();
+         getAllBlockedServices();
++
++        const intervalId = window.setInterval(() => {
++            const canRefresh =
++                document.visibilityState === 'visible' &&
++                !queryLogsState.processingGetLogs &&
++                !queryLogsState.processingAdditionalLogs &&
++                queryLogsState.logs.length <= QUERY_LOGS_PAGE_LIMIT;
++
++            if (canRefresh) {
++                refreshFilteredLogs();
++            }
++        }, 5000);
++
++        onCleanup(() => window.clearInterval(intervalId));
+     });
+ 
+     // Watch location.search for filter changes

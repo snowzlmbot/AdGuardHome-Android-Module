@@ -11,3 +11,4 @@ coverage/
 .env.*
 graphify-out/
 .worktrees/
+.build/
