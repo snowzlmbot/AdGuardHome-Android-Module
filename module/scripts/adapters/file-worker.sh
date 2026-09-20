@@ -13,10 +13,10 @@ file_state_write() {
     file_state_value=$1
     file_state_reason=${2:-}
     file_state_tmp="$AGH_STATE_DIR/.file.state.$$"
-    printf 'state=%s\nreason=%s\n' "$file_state_value" "$file_state_reason" > "$file_state_tmp"
+    printf 'state=%s\nreason=%s\n' "$file_state_value" "$file_state_reason" > "$file_state_tmp" || return 1
     chmod 0600 "$file_state_tmp"
-    sync
-    mv -f "$file_state_tmp" "$AGH_STATE_DIR/file.state"
+    agh_sync
+    agh_move "$file_state_tmp" "$AGH_STATE_DIR/file.state"
 }
 
 file_config_value() {
@@ -44,6 +44,16 @@ file_safe_target() {
     return 0
 }
 
+file_manifest_recorded() {
+    file_manifest_file=$1
+    file_manifest_target=$2
+    [ -f "$file_manifest_file" ] || return 1
+    while IFS='|' read -r file_recorded_path _; do
+        [ "$file_recorded_path" = "$file_manifest_target" ] && return 0
+    done < "$file_manifest_file"
+    return 1
+}
+
 file_backup_target() {
     file_target_path=$1
     file_target_type=$2
@@ -51,7 +61,7 @@ file_backup_target() {
     file_max_backup=$(file_config_value max_backup_bytes)
     case "$file_max_backup" in ''|*[!0-9]*) return 1 ;; esac
     if [ "$file_target_type" = directory ]; then
-        file_backup_size_kb=$(du -sk "$file_target_path" 2>/dev/null | awk '{print $1}')
+        file_backup_size_kb=$(du -sk "$file_target_path" 2>/dev/null | cut -f1)
         case "$file_backup_size_kb" in ''|*[!0-9]*) return 1 ;; esac
         file_backup_size=$((file_backup_size_kb * 1024))
     else
@@ -92,6 +102,15 @@ file_process_target() {
     [ -n "$file_target_id" ] || return 1
     file_safe_target "$file_target_path" || return 1
     [ -e "$file_target_path" ] || return 0
+    file_manifest_path "$file_target_path"
+    if file_manifest_recorded "$FILE_MANIFEST" "$file_target_path"; then
+        file_current=$(backup_content_hash "$file_target_path" "$file_target_type")
+        file_recorded_after=$(while IFS='|' read -r file_path _ _ _ _ _ _ file_after; do
+            [ "$file_path" = "$file_target_path" ] && { printf '%s\n' "$file_after"; break; }
+        done < "$FILE_MANIFEST")
+        [ -n "$file_recorded_after" ] && [ "$file_current" = "$file_recorded_after" ]
+        return $?
+    fi
     case "$file_target_type" in file) [ -f "$file_target_path" ] || return 1 ;; directory) [ -d "$file_target_path" ] || return 1 ;; *) return 1 ;; esac
     file_backup_target "$file_target_path" "$file_target_type" || return 1
     file_clear_target "$file_target_path" "$file_target_type" || return 1
@@ -107,6 +126,10 @@ file_clean() {
     file_restore_warning=0
     while IFS='|' read -r file_path file_backup file_before file_type file_mode file_uid file_gid file_after; do
         [ -n "$file_path" ] || continue
+        if [ -n "$file_last_path" ] && [ "$file_last_path" = "$file_path" ]; then
+            continue
+        fi
+        file_last_path=$file_path
         file_current=$(backup_content_hash "$file_path" "$file_type")
         if [ "$file_current" = "$file_after" ]; then
             if [ "$file_type" = directory ]; then
@@ -123,7 +146,11 @@ file_clean() {
             file_restore_warning=1
         fi
     done < "$file_manifest"
-    if [ "$file_restore_warning" -eq 1 ]; then file_state_write warning user_modified_or_restore_failed; else file_state_write ready restored; fi
+    if [ "$file_restore_warning" -eq 1 ]; then
+        file_state_write warning user_modified_or_restore_failed
+        return 1
+    fi
+    file_state_write ready restored
     return 0
 }
 

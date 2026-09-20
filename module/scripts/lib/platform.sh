@@ -48,8 +48,8 @@ verify_binary() {
     elf_matches_arch "$binary_file" "$binary_arch" || return 1
     if [ -n "$checksum_file" ]; then
         [ -f "$checksum_file" ] || return 1
-        expected_checksum=$(awk 'NR == 1 {print $1}' "$checksum_file")
-        actual_checksum=$(sha256sum "$binary_file" 2>/dev/null | awk '{print $1}')
+        expected_checksum=$(cut -d ' ' -f1 "$checksum_file" 2>/dev/null | sed -n '1p')
+        actual_checksum=$(sha256sum "$binary_file" 2>/dev/null | cut -d ' ' -f1)
         [ -n "$expected_checksum" ] || return 1
         [ "$expected_checksum" = "$actual_checksum" ] || return 1
     fi
@@ -68,11 +68,13 @@ port_is_free() {
     port_value=${1:-}
     valid_port "$port_value" || return 1
     if command -v ss >/dev/null 2>&1; then
-        ! ss -lnt 2>/dev/null | grep -Eq "([.:])${port_value}[[:space:]]"
+        ! ss -lnt 2>/dev/null | grep -Eq "([.:])${port_value}[[:space:]]" || return 1
+        ! ss -lnu 2>/dev/null | grep -Eq "([.:])${port_value}[[:space:]]"
         return $?
     fi
     if command -v netstat >/dev/null 2>&1; then
-        ! netstat -lnt 2>/dev/null | grep -Eq "([.:])${port_value}[[:space:]]"
+        ! netstat -lnt 2>/dev/null | grep -Eq "([.:])${port_value}[[:space:]]" || return 1
+        ! netstat -lnu 2>/dev/null | grep -Eq "([.:])${port_value}[[:space:]]"
         return $?
     fi
     return 0

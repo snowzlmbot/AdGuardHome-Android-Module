@@ -37,3 +37,20 @@ read_key_value() {
         sed -n "s/^${key}=//p" "$file" | sed -n '1p'
     fi
 }
+
+# Android builds can expose a broken or absent external sync/mv utility while
+# the shell and core are still usable. State writes must remain atomic without
+# turning an optional flush into a hard failure.
+agh_sync() {
+    if command -v sync >/dev/null 2>&1; then
+        sync >/dev/null 2>&1 || true
+    fi
+}
+
+agh_move() {
+    [ "$#" -eq 2 ] || return 2
+    if mv -f "$1" "$2" >/dev/null 2>&1; then
+        return 0
+    fi
+    cp -f "$1" "$2" >/dev/null 2>&1 && rm -f "$1"
+}

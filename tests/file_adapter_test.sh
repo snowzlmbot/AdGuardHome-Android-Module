@@ -33,7 +33,7 @@ grep -F 'keep-image' "$fixture/cache/keep.txt" >/dev/null || fail 'directory tar
 
 sh "$ROOT/module/scripts/adapters/file-worker.sh" once || true
 printf 'user-edit\n' >> "$fixture/ad.txt"
-sh "$ROOT/module/scripts/adapters/file-worker.sh" --clean || fail 'changed file clean failed'
+if sh "$ROOT/module/scripts/adapters/file-worker.sh" --clean; then fail 'changed file clean should report restore failure'; fi
 grep -F 'user-edit' "$fixture/ad.txt" >/dev/null || fail 'changed file was overwritten'
 grep -F 'state=warning' "$AGH_STATE_DIR/file.state" >/dev/null || fail 'file warning state missing'
 

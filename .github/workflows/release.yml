@@ -39,6 +39,12 @@ jobs:
         run: |
           chmod +x tests/static/check-shell.sh
           BUSYBOX_BIN=busybox tests/static/check-shell.sh .
+      - name: Build patched AdGuard Home binaries
+        shell: bash
+        run: |
+          chmod +x build/build-fixed-binaries.sh
+          build/build-fixed-binaries.sh "${{ steps.version.outputs.agh }}" "$RUNNER_TEMP/agh-binaries"
+          echo "AGH_BINARY_ROOT=$RUNNER_TEMP/agh-binaries" >> "$GITHUB_ENV"
       - name: Package
         shell: bash
         run: |
