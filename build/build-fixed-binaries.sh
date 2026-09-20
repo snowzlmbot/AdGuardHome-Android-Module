@@ -46,10 +46,15 @@ docker run --rm --name agh-patched-build --memory=6g --cpus=2 --pids-limit=512 \
             sh ./scripts/make/go-build.sh
         file /out/arm64/AdGuardHome /out/armv7/AdGuardHome
         sha256sum /out/arm64/AdGuardHome /out/armv7/AdGuardHome
+        sha256sum /out/arm64/AdGuardHome > /out/arm64/AdGuardHome.sha256
+        sha256sum /out/armv7/AdGuardHome > /out/armv7/AdGuardHome.sha256
     '
 
 for arch in arm64 armv7; do
     [ -x "$OUTPUT_ROOT/$arch/AdGuardHome" ] || { printf 'built binary is not executable: %s\n' "$arch" >&2; exit 1; }
-    sha256sum "$OUTPUT_ROOT/$arch/AdGuardHome" > "$OUTPUT_ROOT/$arch/AdGuardHome.sha256"
+    [ -s "$OUTPUT_ROOT/$arch/AdGuardHome.sha256" ] || { printf 'missing binary checksum: %s\n' "$arch" >&2; exit 1; }
+    actual_bin_sha=$(sha256sum "$OUTPUT_ROOT/$arch/AdGuardHome" | cut -d ' ' -f1)
+    expected_bin_sha=$(cut -d ' ' -f1 "$OUTPUT_ROOT/$arch/AdGuardHome.sha256")
+    [ "$actual_bin_sha" = "$expected_bin_sha" ] || { printf 'binary checksum mismatch: %s\n' "$arch" >&2; exit 1; }
 done
 printf '%s\n' "$OUTPUT_ROOT/arm64/AdGuardHome" "$OUTPUT_ROOT/armv7/AdGuardHome"
