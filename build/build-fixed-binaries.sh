@@ -34,6 +34,7 @@ docker run --rm --name agh-patched-build --memory=6g --cpus=2 --pids-limit=512 \
     bash -lc '
         set -eu
         export PATH=/usr/local/go/bin:/go/bin:$PATH
+        git config --global --add safe.directory /src
         npm --prefix client_v2 ci --no-audit --no-fund
         npm --prefix client_v2 run build-prod
         mkdir -p /out/arm64 /out/armv7
