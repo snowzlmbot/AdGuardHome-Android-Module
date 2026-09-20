@@ -15,6 +15,12 @@ state_value() {
     sed -n "s/^${diagnostics_key}=//p" "$diagnostics_file" 2>/dev/null | sed -n '1p'
 }
 
+diagnostics_config_value() {
+    diagnostics_key=$1
+    [ -f "$AGH_CONFIG_DIR/file-adapter.conf" ] || return 0
+    sed -n "s/^${diagnostics_key}=//p" "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null | sed -n '1p'
+}
+
 diagnostics_redact() {
     sed -E \
         -e 's/(password|passwd|token|authorization|cookie|secret)([=:[:space:]]+)[^[:space:]]+/\1\2[REDACTED]/Ig' \
@@ -132,9 +138,20 @@ printf 'core_reason=%s\n' "$(state_value "$diagnostics_core" reason || printf un
 printf 'core_retry_in=%s\n' "$(state_value "$diagnostics_core" retry_in || printf 0)"
 printf 'network_reason=%s\n' "$(state_value "$diagnostics_network" reason || printf unknown)"
 printf 'proxy_reason=%s\n' "$(state_value "$diagnostics_proxy" reason || printf unknown)"
+diagnostics_file_rules_url=$(state_value "$diagnostics_file" url)
+[ -n "$diagnostics_file_rules_url" ] || diagnostics_file_rules_url=$(diagnostics_config_value rules_url)
+[ -n "$diagnostics_file_rules_url" ] || diagnostics_file_rules_url='https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf'
+diagnostics_file_rules_sha_url=$(state_value "$diagnostics_file" sha256_url)
+[ -n "$diagnostics_file_rules_sha_url" ] || diagnostics_file_rules_sha_url=$(diagnostics_config_value rules_sha256_url)
+[ -n "$diagnostics_file_rules_sha_url" ] || diagnostics_file_rules_sha_url='https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf.sha256'
+diagnostics_file_rules_view_url=$(state_value "$diagnostics_file" view_url)
+[ -n "$diagnostics_file_rules_view_url" ] || diagnostics_file_rules_view_url="$diagnostics_file_rules_url"
 printf 'file_reason=%s\n' "$(state_value "$diagnostics_file" reason || printf unknown)"
 printf 'file_rules_state=%s\n' "$(state_value "$diagnostics_file" rules_state || printf unknown)"
 printf 'file_rules_sha256=%s\n' "$(state_value "$diagnostics_file" rules_sha256 || printf unknown)"
+printf 'file_rules_url=%s\n' "$diagnostics_file_rules_url"
+printf 'file_rules_sha256_url=%s\n' "$diagnostics_file_rules_sha_url"
+printf 'file_rules_view_url=%s\n' "$diagnostics_file_rules_view_url"
 printf 'file_package_filter=%s\n' "$(state_value "$diagnostics_file" package_filter || printf all)"
 printf 'file_targets_total=%s\n' "$(state_value "$diagnostics_file" targets_total || printf 0)"
 printf 'file_targets_installed=%s\n' "$(state_value "$diagnostics_file" targets_installed || printf 0)"

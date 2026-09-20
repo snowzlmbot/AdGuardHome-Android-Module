@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.16
+
+- Added WebUI URL fields for cloud rule resources, SHA-256 links, and GitHub parsed-file links; GitHub blob URLs are normalized to raw URLs.
+- Made reboot startup invoke workers through `sh` for Android shell compatibility and clarified VPN passthrough as an explicit unfiltered state.
+- Fixed rule-link persistence and diagnostics read-back for cloud-delivered resources.
+
 ## 0.1.15
 
 - Reintroduced the full second-maintainer file-ad cleanup manifest with provenance and safe blocked entries for protected paths.

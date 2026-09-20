@@ -111,10 +111,16 @@
       </div>
       <p id="fileRulesMeta" class="dialog-note" data-i18n="fileRules.help">只处理已存在的应用目录，不会为未安装应用创建占位文件夹。</p>
       <div class="file-rule-controls">
-        <label class="file-package-label" for="filePackage" data-i18n="fileRules.packageLabel">应用包名（可选）</label>
+        <label class="file-package-label" for="fileRulesUrl" data-i18n="fileRules.urlLabel">规则文件链接</label>
+        <input id="fileRulesUrl" class="file-package-input" inputmode="url" autocomplete="off" placeholder="https://raw.githubusercontent.com/.../file-ad-targets.conf" data-i18n-placeholder="fileRules.urlPlaceholder">
+        <label class="file-package-label" for="fileRulesShaUrl" data-i18n="fileRules.shaLabel">SHA-256 校验链接（可选）</label>
+        <input id="fileRulesShaUrl" class="file-package-input" inputmode="url" autocomplete="off" placeholder="自动使用规则链接.sha256" data-i18n-placeholder="fileRules.shaPlaceholder">
+        <a id="fileRulesView" class="file-rules-view" href="#" target="_blank" rel="noopener" data-i18n="fileRules.view">在 GitHub 查看解析</a>
+        <label class="file-package-label" for="filePackage" data-i18n="fileRules.packageLabel">包名过滤（可选）</label>
         <input id="filePackage" class="file-package-input" inputmode="text" autocomplete="off" placeholder="com.example.app" data-i18n-placeholder="fileRules.packagePlaceholder">
       </div>
       <div class="primary-actions">
+        <button id="saveFileRulesUrl" class="control" data-i18n="fileRules.save">保存链接</button>
         <button id="refreshFileRules" class="control start" data-i18n="fileRules.refresh">↻ 更新规则并清理</button>
         <button id="applyFileRules" class="control" data-i18n="fileRules.apply">扫描并覆盖已安装应用</button>
       </div>

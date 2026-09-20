@@ -101,6 +101,7 @@ control_set_mode() {
 control_command=${1:-status}
 control_argument=${2:-}
 control_value=${3:-}
+control_extra=${4:-}
 case "$control_command" in
     start)
         ensure_dirs || exit 1
@@ -112,6 +113,7 @@ case "$control_command" in
     backup-latest) control_backup latest ;;
     backup-restore) control_backup restore ;;
     file-rules-status) sh "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
+    file-rules-set-url) sh "$SCRIPT_DIR/../adapters/file-rules.sh" set-url "$control_argument" "$control_value" "$control_extra" ;;
     file-rules-refresh)
         sh "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
         FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
@@ -148,7 +150,7 @@ case "$control_command" in
         fi
         ;;
     *)
-        printf 'usage: %s {start|status|backup|backup-latest|backup-restore|file-rules-status|file-rules-refresh [package]|file-apply [package]|pause|resume|enable|disable|restart-core|set-mode 1|2|3|set-policy key true|false|enable-proxy|disable-proxy|enable-file|disable-file}\n' "$0" >&2
+        printf 'usage: %s {start|status|backup|backup-latest|backup-restore|file-rules-status|file-rules-set-url URL [SHA_URL] [VIEW_URL]|file-rules-refresh [package]|file-apply [package]|pause|resume|enable|disable|restart-core|set-mode 1|2|3|set-policy key true|false|enable-proxy|disable-proxy|enable-file|disable-file}\n' "$0" >&2
         exit 2
         ;;
 esac

@@ -51,7 +51,7 @@ supervisor_run_worker() {
     [ -x "$supervisor_worker" ] || return 0
     supervisor_worker_log="$AGH_LOG_DIR/$supervisor_name-worker.log"
     log_rotate_file "$supervisor_worker_log"
-    "$supervisor_worker" once >>"$supervisor_worker_log" 2>&1
+    sh "$supervisor_worker" once >>"$supervisor_worker_log" 2>&1
     supervisor_rc=$?
     if [ "$supervisor_rc" -ne 0 ]; then
         log_message supervisor "$supervisor_name worker exited with status $supervisor_rc"
@@ -82,7 +82,7 @@ supervisor_consume_control() {
     fi
     if [ -f "$supervisor_control_dir/restart-core" ]; then
         supervisor_worker="$SCRIPT_DIR/../core/core-worker.sh"
-        [ -x "$supervisor_worker" ] && "$supervisor_worker" stop >/dev/null 2>&1 || true
+        [ -x "$supervisor_worker" ] && sh "$supervisor_worker" stop >/dev/null 2>&1 || true
         rm -f "$supervisor_control_dir/restart-core"
     fi
 }
