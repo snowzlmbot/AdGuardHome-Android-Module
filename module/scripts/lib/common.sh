@@ -38,17 +38,33 @@ read_key_value() {
     fi
 }
 
-# Android builds can expose a broken or absent external sync/mv utility while
-# the shell and core are still usable. State writes must remain atomic without
-# turning an optional flush into a hard failure.
+agh_printf() {
+    if command -v toybox >/dev/null 2>&1; then
+        toybox printf "$@"
+    else
+        printf "$@"
+    fi
+}
+
+agh_chmod() {
+    if command -v toybox >/dev/null 2>&1; then
+        toybox chmod "$@"
+    else
+        chmod "$@"
+    fi
+}
+
 agh_sync() {
-    if command -v sync >/dev/null 2>&1; then
-        sync >/dev/null 2>&1 || true
+    if command -v toybox >/dev/null 2>&1; then
+        toybox sync >/dev/null 2>&1 || true
     fi
 }
 
 agh_move() {
     [ "$#" -eq 2 ] || return 2
+    if command -v toybox >/dev/null 2>&1 && toybox mv -f "$1" "$2" >/dev/null 2>&1; then
+        return 0
+    fi
     if mv -f "$1" "$2" >/dev/null 2>&1; then
         return 0
     fi

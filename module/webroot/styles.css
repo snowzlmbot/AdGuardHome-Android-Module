@@ -102,6 +102,10 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -.025em; }
 .toggle { min-width: 72px; min-height: 39px; padding: 8px 12px; font-size: 12px; }
 .toggle.on { color: #07100d; border-color: var(--acid); background: var(--acid); }
 .toggle.danger.on { color: white; border-color: var(--danger); background: var(--danger); }
+.file-rule-controls { display: grid; gap: 6px; margin: 14px 0; }
+.file-package-label { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.file-package-input { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; color: var(--text); background: rgba(2,8,6,.35); font: 500 12px "JetBrains Mono", "Noto Sans Mono", monospace; }
+.file-package-input:focus { border-color: var(--mint); outline: 2px solid rgba(91,224,160,.22); }
 footer { display: flex; justify-content: space-between; padding: 12px 4px 0; color: var(--muted); font-size: 10px; }
 footer a { color: var(--mint); }
 dialog { width: min(calc(100% - 32px), 440px); padding: 25px; color: var(--ink); border: 1px solid var(--line); border-radius: 24px; background: #102019; box-shadow: var(--shadow); }
