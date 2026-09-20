@@ -49,7 +49,7 @@ docker run --rm --name agh-patched-build --memory=6g --cpus=2 --pids-limit=512 \
     '
 
 for arch in arm64 armv7; do
-    chmod 0755 "$OUTPUT_ROOT/$arch/AdGuardHome"
+    [ -x "$OUTPUT_ROOT/$arch/AdGuardHome" ] || { printf 'built binary is not executable: %s\n' "$arch" >&2; exit 1; }
     sha256sum "$OUTPUT_ROOT/$arch/AdGuardHome" > "$OUTPUT_ROOT/$arch/AdGuardHome.sha256"
 done
 printf '%s\n' "$OUTPUT_ROOT/arm64/AdGuardHome" "$OUTPUT_ROOT/armv7/AdGuardHome"
