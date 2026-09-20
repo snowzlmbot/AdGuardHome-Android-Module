@@ -25,6 +25,54 @@ file_rules_default_sha_url() {
     printf '%s\n' 'https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf.sha256'
 }
 
+file_rules_normalize_url() {
+    file_rules_input_url=$1
+    case "$file_rules_input_url" in
+        https://raw.githubusercontent.com/*) printf '%s\n' "$file_rules_input_url" ;;
+        https://github.com/*/blob/*)
+            file_rules_github_prefix='https://github.com/'
+            file_rules_tail=${file_rules_input_url#"$file_rules_github_prefix"}
+            file_rules_repo=${file_rules_tail%%/blob/*}
+            file_rules_rest=${file_rules_tail#*/blob/}
+            printf 'https://raw.githubusercontent.com/%s/%s\n' "$file_rules_repo" "$file_rules_rest"
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+file_rules_view_url() {
+    file_rules_raw=$1
+    case "$file_rules_raw" in
+        https://raw.githubusercontent.com/*)
+            file_rules_raw_prefix='https://raw.githubusercontent.com/'
+            file_rules_tail=${file_rules_raw#"$file_rules_raw_prefix"}
+            file_rules_owner=${file_rules_tail%%/*}
+            file_rules_after_owner=${file_rules_tail#*/}
+            file_rules_repo_name=${file_rules_after_owner%%/*}
+            file_rules_rest=${file_rules_after_owner#*/}
+            file_rules_ref=${file_rules_rest%%/*}
+            file_rules_path=${file_rules_rest#*/}
+            printf 'https://github.com/%s/%s/blob/%s/%s\n' "$file_rules_owner" "$file_rules_repo_name" "$file_rules_ref" "$file_rules_path"
+            ;;
+        *) printf '%s\n' "$file_rules_raw" ;;
+    esac
+}
+
+file_rules_set_config_value() {
+    file_rules_set_key=$1
+    file_rules_set_value=$2
+    file_rules_set_tmp="$AGH_CONFIG_DIR/.file-adapter.conf.$$"
+    if grep -q "^${file_rules_set_key}=" "$AGH_CONFIG_DIR/file-adapter.conf"; then
+        sed "s#^${file_rules_set_key}=.*#${file_rules_set_key}=${file_rules_set_value}#" "$AGH_CONFIG_DIR/file-adapter.conf" > "$file_rules_set_tmp" || return 1
+    else
+        cat "$AGH_CONFIG_DIR/file-adapter.conf" > "$file_rules_set_tmp" || return 1
+        agh_printf '%s=%s\n' "$file_rules_set_key" "$file_rules_set_value" >> "$file_rules_set_tmp" || return 1
+    fi
+    agh_chmod 0600 "$file_rules_set_tmp" 2>/dev/null || true
+    agh_sync
+    agh_move "$file_rules_set_tmp" "$AGH_CONFIG_DIR/file-adapter.conf"
+}
+
 file_rules_download() {
     file_rules_url=$1
     file_rules_destination=$2
@@ -86,10 +134,34 @@ file_rules_state_write() {
         agh_printf 'manifest=%s\n' "$FILE_RULES_RUNTIME_MANIFEST"
         agh_printf 'updated=%s\n' "${FILE_RULES_UPDATED:-unknown}"
         agh_printf 'sha256=%s\n' "${FILE_RULES_SHA256:-unknown}"
+        agh_printf 'url=%s\n' "${FILE_RULES_URL:-unknown}"
+        agh_printf 'sha256_url=%s\n' "${FILE_RULES_SHA_URL:-unknown}"
+        agh_printf 'view_url=%s\n' "${FILE_RULES_VIEW_URL:-unknown}"
     } > "$file_rules_state_tmp" || return 1
     agh_chmod 0600 "$file_rules_state_tmp" 2>/dev/null || true
     agh_sync
     agh_move "$file_rules_state_tmp" "$FILE_RULES_STATE"
+}
+
+file_rules_set_url() {
+    ensure_dirs || return 1
+    file_rules_raw=$(file_rules_normalize_url "$1") || return 1
+    file_rules_sha_raw=${2:-}
+    if [ -n "$file_rules_sha_raw" ]; then
+        file_rules_sha_url=$(file_rules_normalize_url "$file_rules_sha_raw") || return 1
+    else
+        file_rules_sha_url="$file_rules_raw.sha256"
+    fi
+    file_rules_view=${3:-$(file_rules_view_url "$file_rules_raw")}
+    case "$file_rules_view" in https://*) ;; *) return 1 ;; esac
+    file_rules_set_config_value rules_url "$file_rules_raw" || return 1
+    file_rules_set_config_value rules_sha256_url "$file_rules_sha_url" || return 1
+    file_rules_set_config_value rules_view_url "$file_rules_view" || return 1
+    FILE_RULES_URL=$file_rules_raw
+    FILE_RULES_SHA_URL=$file_rules_sha_url
+    FILE_RULES_VIEW_URL=$file_rules_view
+    FILE_RULES_UPDATED=$(date '+%Y%m%d-%H%M%S' 2>/dev/null || printf unknown)
+    file_rules_state_write ready configured
 }
 
 file_rules_refresh() {
@@ -98,6 +170,10 @@ file_rules_refresh() {
     [ -n "$file_rules_url" ] || file_rules_url=$(file_rules_default_url)
     file_rules_sha_url=$(file_rules_config_value rules_sha256_url)
     [ -n "$file_rules_sha_url" ] || file_rules_sha_url=$(file_rules_default_sha_url)
+    FILE_RULES_URL=$file_rules_url
+    FILE_RULES_SHA_URL=$file_rules_sha_url
+    FILE_RULES_VIEW_URL=$(file_rules_config_value rules_view_url)
+    [ -n "$FILE_RULES_VIEW_URL" ] || FILE_RULES_VIEW_URL=$(file_rules_view_url "$file_rules_url")
     file_rules_tmp="$AGH_CONFIG_DIR/.file-ad-targets.conf.$$"
     file_rules_sha_tmp="$AGH_CONFIG_DIR/.file-ad-targets.conf.sha256.$$"
     file_rules_download "$file_rules_url" "$file_rules_tmp" || { rm -f "$file_rules_tmp" "$file_rules_sha_tmp"; file_rules_state_write failed download; return 1; }
@@ -123,13 +199,17 @@ file_rules_status() {
     if [ -f "$FILE_RULES_STATE" ]; then
         cat "$FILE_RULES_STATE"
     else
-        agh_printf 'state=baseline\nmanifest=%s\n' "$FILE_RULES_RUNTIME_MANIFEST"
+        file_rules_status_url=$(file_rules_config_value rules_url); [ -n "$file_rules_status_url" ] || file_rules_status_url=$(file_rules_default_url)
+        file_rules_status_sha=$(file_rules_config_value rules_sha256_url); [ -n "$file_rules_status_sha" ] || file_rules_status_sha=$(file_rules_default_sha_url)
+        file_rules_status_view=$(file_rules_config_value rules_view_url); [ -n "$file_rules_status_view" ] || file_rules_status_view=$(file_rules_view_url "$file_rules_status_url")
+        agh_printf 'state=baseline\nmanifest=%s\nurl=%s\nsha256_url=%s\nview_url=%s\n' "$FILE_RULES_RUNTIME_MANIFEST" "$file_rules_status_url" "$file_rules_status_sha" "$file_rules_status_view"
     fi
 }
 
 case "${1:-status}" in
     refresh|update) file_rules_refresh ;;
+    set-url) file_rules_set_url "${2:?rules URL required}" "${3:-}" "${4:-}" ;;
     status) file_rules_status ;;
     validate) file_rules_validate "${2:?manifest required}" ;;
-    *) printf 'usage: %s {refresh|status|validate manifest}\n' "$0" >&2; exit 2 ;;
+    *) printf 'usage: %s {refresh|update|set-url URL [SHA_URL] [VIEW_URL]|status|validate manifest}\n' "$0" >&2; exit 2 ;;
 esac

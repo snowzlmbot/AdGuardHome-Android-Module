@@ -19,13 +19,13 @@ const messages = {
     'footer.refresh': '状态每 5 秒自动刷新', 'credential.title': '管理登录信息', 'credential.username': '用户名',
     'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。', 'logs.eyebrow': '脱敏诊断', 'logs.title': '最近模块日志', 'toast.logs': '日志读取失败',
     'toggle.on': '开启', 'toggle.off': '关闭',
-    'fileRules.waiting': '等待规则状态', 'fileRules.help': '只处理已存在的应用目录，不会为未安装应用创建占位文件夹。', 'fileRules.packageLabel': '应用包名（可选）', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ 更新规则并清理', 'fileRules.apply': '扫描并覆盖已安装应用', 'fileRules.meta': '规则 {state} · 已安装 {installed} · 已清理 {applied} · 待处理 {changed} · 缺失 {missing}',
+    'fileRules.waiting': '等待规则状态', 'fileRules.help': '只处理已存在的应用目录，不会为未安装应用创建占位文件夹。', 'fileRules.urlLabel': '规则文件链接', 'fileRules.urlPlaceholder': 'https://raw.githubusercontent.com/.../file-ad-targets.conf', 'fileRules.shaLabel': 'SHA-256 校验链接（可选）', 'fileRules.shaPlaceholder': '自动使用规则链接.sha256', 'fileRules.view': '在 GitHub 查看解析', 'fileRules.save': '保存链接', 'fileRules.packageLabel': '包名过滤（可选）', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ 更新规则并清理', 'fileRules.apply': '扫描并覆盖已安装应用', 'fileRules.meta': '规则 {state} · 已安装 {installed} · 已清理 {applied} · 待处理 {changed} · 缺失 {missing}',
     'overall.running': '运行中', 'overall.paused': '已暂停', 'overall.stopped': '已停止', 'overall.degraded': '部分功能异常', 'overall.failed': '启动失败',
     'summary.running': 'DNS 核心与过滤规则已生效', 'summary.filtersLoading': 'DNS 核心已运行，过滤规则仍在加载', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
     'summary.stopped': '模块已停止；点击启动恢复', 'summary.degraded': '核心已运行，但部分组件未生效',
     'summary.failed': 'AdGuard Home 核心未启动',
     'toast.done': '操作已提交', 'toast.backup': '配置备份已创建', 'toast.mode': '模式已保存', 'toast.modePending': '模式已保存，核心恢复后生效',
-    'toast.failed': '操作失败', 'toast.fileRules': '规则已更新并完成已安装应用扫描', 'toast.refreshed': '状态已刷新', 'toast.unavailable': 'AdGuard Home 尚未启动',
+    'toast.failed': '操作失败', 'toast.fileRules': '规则已更新并完成已安装应用扫描', 'toast.fileRulesSaved': '云端规则链接已保存', 'toast.refreshed': '状态已刷新', 'toast.unavailable': 'AdGuard Home 尚未启动',
     'toast.bridge': '请在 KernelSU 模块 WebUI 中打开', 'toast.credentials': '凭据读取失败',
     'status.ready': '正常', 'status.running': '运行中', 'status.failed': '失败', 'status.degraded': '异常', 'status.removed': '已撤销',
     'status.unknown': '未知', 'status.disabled': '已关闭', 'status.blocked': '等待核心', 'status.paused': '已暂停', 'status.stopped': '已停止', 'status.loading': '加载中', 'status.unavailable': '不可用',
@@ -33,7 +33,7 @@ const messages = {
     'reason.invalid_ports': '端口配置无效', 'reason.runtime_config': '无法更新运行配置', 'reason.web_port_timeout': 'Web 服务启动超时',
     'reason.initial_configuration': '首次初始化失败', 'reason.dns_port_timeout': 'DNS 服务启动超时', 'reason.core_not_ready': '等待核心启动',
     'reason.discovery_failed': '无法读取 Android 网络状态', 'reason.no_network': '当前没有可用网络', 'reason.invalid_mode': 'DNS 模式无效',
-    'reason.module_paused': '模块已暂停', 'reason.ready': '运行正常', 'reason.dns_not_exposed': '系统未公开 DNS 地址，但网络可用',
+    'reason.module_paused': '模块已暂停', 'reason.ready': '运行正常', 'reason.vpn_passthrough': 'VPN 旁路已启用，透明 DNS 未接管；关闭旁路后恢复过滤', 'reason.network_not_ready': '网络尚未就绪，防火墙保持放行', 'reason.dns_not_exposed': '系统未公开 DNS 地址，但网络可用',
     'reason.mode_configuration': 'DNS 模式配置失败', 'reason.mode_restart_timeout': '模式切换后核心重启超时', 'reason.unknown': '请查看诊断状态'
     , 'network.wifi': 'Wi‑Fi', 'network.mobile': '移动数据', 'network.ethernet': '以太网', 'network.other': '其他网络', 'network.vpn': 'VPN'
   },
@@ -53,13 +53,13 @@ const messages = {
     'footer.refresh': 'Status refreshes every 5 seconds', 'credential.title': 'Dashboard credentials', 'credential.username': 'Username',
     'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.', 'logs.eyebrow': 'REDACTED DIAGNOSTICS', 'logs.title': 'Recent module logs', 'toast.logs': 'Failed to read logs',
     'toggle.on': 'ON', 'toggle.off': 'OFF',
-    'fileRules.waiting': 'Waiting for rule status', 'fileRules.help': 'Only existing app paths are processed; no placeholder folders are created for uninstalled apps.', 'fileRules.packageLabel': 'Package name (optional)', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ Update rules & clean', 'fileRules.apply': 'Scan installed apps', 'fileRules.meta': 'Rules {state} · installed {installed} · cleaned {applied} · changed {changed} · missing {missing}',
+    'fileRules.waiting': 'Waiting for rule status', 'fileRules.help': 'Only existing app paths are processed; no placeholder folders are created for uninstalled apps.', 'fileRules.urlLabel': 'Rule file URL', 'fileRules.urlPlaceholder': 'https://raw.githubusercontent.com/.../file-ad-targets.conf', 'fileRules.shaLabel': 'SHA-256 URL (optional)', 'fileRules.shaPlaceholder': 'Defaults to rule URL.sha256', 'fileRules.view': 'View parsed file on GitHub', 'fileRules.save': 'Save links', 'fileRules.packageLabel': 'Package filter (optional)', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ Update rules & clean', 'fileRules.apply': 'Scan installed apps', 'fileRules.meta': 'Rules {state} · installed {installed} · cleaned {applied} · changed {changed} · missing {missing}',
     'overall.running': 'Running', 'overall.paused': 'Paused', 'overall.stopped': 'Stopped', 'overall.degraded': 'Partially degraded', 'overall.failed': 'Startup failed',
     'summary.running': 'DNS core and filtering rules are active', 'summary.filtersLoading': 'DNS core is running; filter lists are still loading', 'summary.paused': 'Core is running; DNS redirects are removed',
     'summary.stopped': 'The module is stopped; press Start to recover', 'summary.degraded': 'Core is running, but a component is inactive',
     'summary.failed': 'AdGuard Home core is not running',
     'toast.done': 'Action submitted', 'toast.backup': 'Configuration backup created', 'toast.mode': 'Mode saved', 'toast.modePending': 'Mode saved; it will apply after core recovery',
-    'toast.failed': 'Action failed', 'toast.fileRules': 'Rules updated and installed-app scan completed', 'toast.refreshed': 'Status refreshed', 'toast.unavailable': 'AdGuard Home is not running',
+    'toast.failed': 'Action failed', 'toast.fileRules': 'Rules updated and installed-app scan completed', 'toast.fileRulesSaved': 'Cloud rule links saved', 'toast.refreshed': 'Status refreshed', 'toast.unavailable': 'AdGuard Home is not running',
     'toast.bridge': 'Open this page inside KernelSU module WebUI', 'toast.credentials': 'Failed to read credentials',
     'status.ready': 'Ready', 'status.running': 'Running', 'status.failed': 'Failed', 'status.degraded': 'Degraded', 'status.removed': 'Removed',
     'status.unknown': 'Unknown', 'status.disabled': 'Disabled', 'status.blocked': 'Waiting for core', 'status.paused': 'Paused', 'status.stopped': 'Stopped', 'status.loading': 'Loading', 'status.unavailable': 'Unavailable',
@@ -67,7 +67,7 @@ const messages = {
     'reason.invalid_ports': 'Port configuration is invalid', 'reason.runtime_config': 'Failed to update runtime configuration', 'reason.web_port_timeout': 'Web service startup timed out',
     'reason.initial_configuration': 'First-run configuration failed', 'reason.dns_port_timeout': 'DNS service startup timed out', 'reason.core_not_ready': 'Waiting for the core',
     'reason.discovery_failed': 'Unable to read Android network state', 'reason.no_network': 'No active network', 'reason.invalid_mode': 'Invalid DNS mode',
-    'reason.module_paused': 'Module is paused', 'reason.ready': 'Running normally', 'reason.dns_not_exposed': 'Android did not expose DNS addresses, but the network is active',
+    'reason.module_paused': 'Module is paused', 'reason.ready': 'Running normally', 'reason.vpn_passthrough': 'VPN passthrough is enabled; transparent DNS is not taking traffic. Disable passthrough to restore filtering.', 'reason.network_not_ready': 'Network is not ready; firewall remains fail-open', 'reason.dns_not_exposed': 'Android did not expose DNS addresses, but the network is active',
     'reason.mode_configuration': 'DNS mode configuration failed', 'reason.mode_restart_timeout': 'Core restart timed out after mode change', 'reason.unknown': 'Check diagnostics for details'
     , 'network.wifi': 'Wi‑Fi', 'network.mobile': 'Mobile data', 'network.ethernet': 'Ethernet', 'network.other': 'Other network', 'network.vpn': 'VPN'
   }
@@ -85,6 +85,10 @@ function applyLanguage() {
   document.querySelectorAll('[data-i18n-aria]').forEach((node) => { node.setAttribute('aria-label', text(node.dataset.i18nAria)); });
   document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.setAttribute('placeholder', text(node.dataset.i18nPlaceholder)); });
   document.title = language === 'zh' ? 'AdGuard Home 控制台' : 'AdGuard Home Control';
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
 function exec(command) {
@@ -131,6 +135,9 @@ function applyFileRulesStatus(state) {
   const ruleState = state.file_rules_state || 'unknown';
   $('fileRulesState').textContent = ruleState;
   const packageName = state.file_package_filter && state.file_package_filter !== 'all' ? ` · ${state.file_package_filter}` : '';
+  if (state.file_rules_url && document.activeElement !== $('fileRulesUrl')) $('fileRulesUrl').value = state.file_rules_url;
+  if (state.file_rules_sha256_url && document.activeElement !== $('fileRulesShaUrl')) $('fileRulesShaUrl').value = state.file_rules_sha256_url;
+  if (state.file_rules_view_url) { $('fileRulesView').href = state.file_rules_view_url; $('fileRulesView').hidden = false; } else { $('fileRulesView').hidden = true; }
   $('fileRulesMeta').textContent = `${text('fileRules.meta').replace('{state}', ruleState).replace('{installed}', state.file_targets_installed || '0').replace('{applied}', state.file_targets_applied || '0').replace('{changed}', state.file_targets_changed || '0').replace('{missing}', state.file_targets_missing || '0')}${packageName}`;
 }
 
@@ -237,6 +244,23 @@ async function setMode(mode) {
   finally { setBusy(false); }
 }
 
+async function saveFileRulesUrl() {
+  const url = ($('fileRulesUrl').value || '').trim();
+  const shaUrl = ($('fileRulesShaUrl').value || '').trim();
+  if (!/^https:\/\//.test(url) || (shaUrl && !/^https:\/\//.test(shaUrl))) {
+    showToast(text('toast.failed'));
+    return;
+  }
+  setBusy(true);
+  try {
+    const result = await exec(`sh ${CONTROL} file-rules-set-url ${shellQuote(url)} ${shellQuote(shaUrl)}`);
+    if (result.errno !== 0) throw new Error(result.stderr || 'file-rules-set-url');
+    showToast(text('toast.fileRulesSaved'));
+    await refresh();
+  } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }
+  finally { setBusy(false); }
+}
+
 async function runFileRules(action) {
   const packageName = ($('filePackage').value || '').trim();
   if (packageName && !/^[A-Za-z0-9._-]+$/.test(packageName)) {
@@ -245,7 +269,7 @@ async function runFileRules(action) {
   }
   setBusy(true);
   try {
-    const argument = packageName ? ` ${packageName}` : '';
+    const argument = packageName ? ` ${shellQuote(packageName)}` : '';
     const result = await exec(`sh ${CONTROL} ${action}${argument}`);
     if (result.errno !== 0) throw new Error(result.stderr || action);
     showToast(text('toast.fileRules'));
@@ -304,6 +328,7 @@ $('closeDialog').addEventListener('click', () => $('credentialDialog').close ? $
 $('closeLogs').addEventListener('click', () => $('logDialog').close ? $('logDialog').close() : $('logDialog').removeAttribute('open'));
 $('proxyToggle').addEventListener('click', () => runControl($('proxyToggle').dataset.enabled === 'true' ? 'disable-proxy' : 'enable-proxy'));
 $('fileToggle').addEventListener('click', () => runControl($('fileToggle').dataset.enabled === 'true' ? 'disable-file' : 'enable-file'));
+$('saveFileRulesUrl').addEventListener('click', saveFileRulesUrl);
 $('refreshFileRules').addEventListener('click', () => runFileRules('file-rules-refresh'));
 $('applyFileRules').addEventListener('click', () => runFileRules('file-apply'));
 document.querySelectorAll('.policy-toggle').forEach((button) => button.addEventListener('click', () => setPolicy(button.dataset.policy, button.dataset.enabled !== 'true')));
