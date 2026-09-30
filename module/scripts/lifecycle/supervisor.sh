@@ -229,7 +229,8 @@ supervisor_daemon() {
     atomic_write "$supervisor_pid_file" "$$" || return 1
     SUPERVISOR_DAEMON_MODE=1
     export SUPERVISOR_DAEMON_MODE
-    trap supervisor_daemon_cleanup EXIT INT TERM
+    trap supervisor_daemon_cleanup EXIT
+    trap 'supervisor_daemon_cleanup; exit 0' INT TERM
     while [ ! -f "$AGH_RUN_DIR/stop" ]; do
         supervisor_once || log_message supervisor 'supervisor cycle failed'
         sleep "${SUPERVISOR_INTERVAL:-10}"

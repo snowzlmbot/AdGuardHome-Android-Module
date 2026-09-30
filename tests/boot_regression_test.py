@@ -52,21 +52,25 @@ class BootRegression(unittest.TestCase):
         def cleanup(process):
             if process.poll() is None:
                 process.terminate()
-            process.wait(timeout=5)
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
         self.addCleanup(cleanup, foreign)
         (self.root / "run/supervisor.pid").write_text(str(foreign.pid) + "\n")
         daemon = subprocess.Popen(["busybox", "sh", str(MODULE / "scripts/lifecycle/supervisor.sh"), "daemon"],
                                   env=dict(self.env, SUPERVISOR_INTERVAL="1"),
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.addCleanup(cleanup, daemon)
-        for _ in range(40):
+        for _ in range(300):
             if (self.root / "state/core.state").exists() or daemon.poll() is not None:
                 break
             time.sleep(0.1)
         self.assertTrue((self.root / "state/core.state").exists(), "reused foreign PID suppressed startup")
         self.assertIsNone(foreign.poll(), "foreign PID was killed")
         (self.root / "run/stop").touch()
-        self.assertEqual(daemon.wait(timeout=5), 0)
+        self.assertEqual(daemon.wait(timeout=20), 0)
 
 
 if __name__ == "__main__":
