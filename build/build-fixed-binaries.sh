@@ -37,7 +37,10 @@ docker run --rm --name agh-patched-build --memory=6g --cpus=2 --pids-limit=512 \
         git config --global --add safe.directory /src
         npm --prefix client_v2 ci --no-audit --no-fund
         npm --prefix client_v2 run build-prod
-        mkdir -p /out/arm64 /out/armv7
+        mkdir -p /out/arm64 /out/armv7 /out/amd64
+        CHANNEL=development VERSION=v0.107.79 REVISION='"$UPSTREAM_COMMIT"' \
+            OUT=/out/amd64/AdGuardHome GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+            sh ./scripts/make/go-build.sh
         CHANNEL=development VERSION=v0.107.79 REVISION='"$UPSTREAM_COMMIT"' \
             OUT=/out/arm64/AdGuardHome GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
             sh ./scripts/make/go-build.sh

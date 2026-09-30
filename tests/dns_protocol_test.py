@@ -28,7 +28,7 @@ def api(path, payload=None):
                                      data=None if payload is None else json.dumps(payload).encode())
     with urllib.request.urlopen(request, timeout=5) as response:
         body = response.read()
-    return json.loads(body) if body else {}
+    return json.loads(body) if body.strip().startswith((b"{", b"[")) else {}
 
 
 upstream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

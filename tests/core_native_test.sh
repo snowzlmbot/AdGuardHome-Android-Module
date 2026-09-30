@@ -12,12 +12,17 @@ trap cleanup EXIT INT TERM
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
 asset="$fixture/agh.tgz"
+if [ -n "${CORE_NATIVE_BINARY:-}" ]; then
+    mkdir -p "$fixture/AdGuardHome"
+    cp "$CORE_NATIVE_BINARY" "$fixture/AdGuardHome/AdGuardHome"
+else
 curl -LfsS --retry 3 --max-time 180 \
   https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.79/AdGuardHome_linux_amd64.tar.gz \
   -o "$asset"
 actual=$(sha256sum "$asset" | awk '{print $1}')
 [ "$actual" = c48f4a43000665484c5ec28177de11a004759b620dae8f77b2aabefc9ef3687f ] || fail 'native tarball checksum mismatch'
 tar -xzf "$asset" -C "$fixture"
+fi
 
 export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"

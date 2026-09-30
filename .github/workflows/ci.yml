@@ -48,3 +48,28 @@ jobs:
         run: BUSYBOX_BIN=busybox tests/static/check-shell.sh .
       - name: Verify diff hygiene
         run: git diff --check
+
+  package-candidate:
+    if: github.event_name == 'workflow_dispatch'
+    needs: shell-and-fixture-tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and package candidate
+        run: |
+          build/build-fixed-binaries.sh 0.107.79 "$RUNNER_TEMP/binaries"
+          version=$(sed -n 's/^version=//p' module/module.prop)
+          AGH_BINARY_ROOT="$RUNNER_TEMP/binaries" build/package.sh "$version" 0.107.79 dist
+          printf '%s\n' "$GITHUB_SHA" > dist/SOURCE_COMMIT
+          (cd dist && sha256sum *.zip > SHA256SUMS)
+      - name: Exercise the patched native binary
+        run: |
+          chmod +x tests/fixtures/probe-success.sh
+          sudo -E env CORE_NATIVE_BINARY="$RUNNER_TEMP/binaries/amd64/AdGuardHome" sh tests/core_native_test.sh
+          unzip -t dist/*.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module-candidate-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
