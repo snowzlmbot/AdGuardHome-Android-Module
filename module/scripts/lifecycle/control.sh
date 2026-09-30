@@ -10,11 +10,11 @@ export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/agh-config.sh"
 
 control_sync_supervisor() {
-    sh "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1 || true
+    agh_run_script "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1 || true
 }
 
 control_backup() {
-    sh "$SCRIPT_DIR/backup.sh" "$@"
+    agh_run_script "$SCRIPT_DIR/backup.sh" "$@"
 }
 
 control_set_adapter() {
@@ -81,7 +81,7 @@ control_set_mode() {
     control_was_disabled=false
     [ -f "$AGH_STATE_DIR/core.disabled" ] && control_was_disabled=true
     : > "$AGH_STATE_DIR/core.disabled"
-    sh "$SCRIPT_DIR/../core/core-worker.sh" stop >/dev/null 2>&1 || true
+    agh_run_script "$SCRIPT_DIR/../core/core-worker.sh" stop >/dev/null 2>&1 || true
     if ! agh_apply_mode "$control_mode" "$control_yaml" "$control_mode_file" || ! "$control_binary" --config "$control_yaml" --work-dir "$AGH_DATA_DIR" --check-config >/dev/null 2>&1; then
         atomic_copy "$control_yaml_backup" "$control_yaml" || true
         atomic_copy "$control_mode_backup" "$control_mode_file" || true
@@ -95,7 +95,7 @@ control_set_mode() {
     [ "$control_was_disabled" = true ] || rm -f "$AGH_STATE_DIR/core.disabled"
     mkdir -p "$AGH_RUN_DIR/firewall"
     printf 'remove\n' > "$AGH_RUN_DIR/firewall/request"
-    sh "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
+    agh_run_script "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
 }
 
 control_command=${1:-status}
@@ -106,22 +106,22 @@ case "$control_command" in
     start)
         ensure_dirs || exit 1
         rm -f "$AGH_STATE_DIR/core.disabled" "$AGH_STATE_DIR/paused" "$AGH_RUN_DIR/stop"
-        sh "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
+        agh_run_script "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
         printf '%s\n' 'request=start'
         ;;
     backup) control_backup create ;;
     backup-latest) control_backup latest ;;
     backup-restore) control_backup restore ;;
-    file-rules-status) sh "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
-    file-rules-set-url) sh "$SCRIPT_DIR/../adapters/file-rules.sh" set-url "$control_argument" "$control_value" "$control_extra" ;;
+    file-rules-status) agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
+    file-rules-set-url) agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" set-url "$control_argument" "$control_value" "$control_extra" ;;
     file-rules-refresh)
-        sh "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
-        FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
+        agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
+        FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
         control_sync_supervisor
         printf 'request=file-rules-refresh\npackage=%s\n' "${control_argument:-all}"
         ;;
     file-apply)
-        FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
+        FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
         control_sync_supervisor
         printf 'request=file-apply\npackage=%s\n' "${control_argument:-all}"
         ;;

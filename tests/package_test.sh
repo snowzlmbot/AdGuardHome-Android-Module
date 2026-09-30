@@ -9,11 +9,12 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 mkdir -p "$fixture/out"
 (
     cd "$fixture"
-    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.16 0.107.79 out > "$fixture/result"
+    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" "$(sed -n 's/^version=//p' "$ROOT/module/module.prop")" 0.107.79 out > "$fixture/result"
 )
 package=$(sed -n '1p' "$fixture/result")
 [ -f "$package" ] || fail 'package was not created'
 unzip -Z1 "$package" > "$fixture/list"
+python3 "$ROOT/tests/validate_module_zip.py" "$package" || fail 'KSU archive contract failed'
 grep -Fx 'bin/arm64/AdGuardHome' "$fixture/list" >/dev/null || fail 'arm64 binary missing'
 grep -Fx 'bin/armv7/AdGuardHome' "$fixture/list" >/dev/null || fail 'armv7 binary missing'
 grep -Fx 'SHA256SUMS' "$fixture/list" >/dev/null || fail 'SHA256SUMS missing'

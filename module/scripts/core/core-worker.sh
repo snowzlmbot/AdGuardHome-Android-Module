@@ -24,6 +24,7 @@ core_state_write() {
         printf 'pid=%s\n' "${CORE_PID:-}"
         printf 'web_port=%s\n' "${PORT_WEB:-}"
         printf 'dns_port=%s\n' "${PORT_DNS:-}"
+        printf 'dns_ipv6_ready=%s\n' "${CORE_DNS_IPV6_READY:-false}"
         printf 'firewall_authorized=%s\n' "${CORE_FIREWALL_AUTHORIZED:-0}"
         printf 'reason=%s\n' "$core_state_reason"
         printf 'retry_in=%s\n' "${CORE_RETRY_IN:-0}"
@@ -39,16 +40,21 @@ core_probe_port() {
         "$CORE_PORT_PROBE_CMD" "$core_probe_port_value"
         return $?
     fi
-    if command -v ss >/dev/null 2>&1; then
-        ss -lnt 2>/dev/null | grep -Eq "([.:])${core_probe_port_value}[[:space:]]"
-        return $?
-    fi
+    if command -v ss >/dev/null 2>&1 && ss -lnt 2>/dev/null | grep -Eq "([.:])${core_probe_port_value}[[:space:]]"; then return 0; fi
     if command -v netstat >/dev/null 2>&1; then
-        netstat -lnt 2>/dev/null | grep -Eq "([.:])${core_probe_port_value}[[:space:]]"
-        return $?
+        netstat -lnt 2>/dev/null | grep -Eq "([.:])${core_probe_port_value}[[:space:]]" && return 0
     fi
     core_probe_hex=$(printf '%04X' "$core_probe_port_value" 2>/dev/null) || return 1
-    grep -qi ":${core_probe_hex}[[:space:]]" /proc/net/tcp /proc/net/tcp6 2>/dev/null
+    awk -v port=":$core_probe_hex" '$2 ~ (port "$") && $4 == "0A" { found=1 } END { exit !found }' /proc/net/tcp /proc/net/tcp6 2>/dev/null
+}
+
+core_probe_ipv6_dns() {
+    CORE_DNS_IPV6_READY=false
+    core_probe_ipv6_hex=$(printf '%04X' "$PORT_DNS") || return 1
+    if grep -qi "00000000000000000000000001000000:${core_probe_ipv6_hex}[[:space:]]" /proc/net/tcp6 2>/dev/null &&
+       grep -qi "00000000000000000000000001000000:${core_probe_ipv6_hex}[[:space:]]" /proc/net/udp6 2>/dev/null; then
+        CORE_DNS_IPV6_READY=true
+    fi
 }
 
 core_wait_for_port() {
@@ -56,8 +62,13 @@ core_wait_for_port() {
     core_wait_seconds=${2:-30}
     core_wait_count=0
     while [ "$core_wait_count" -lt "$core_wait_seconds" ]; do
-        core_pid_is_ours || return 2
-        core_probe_port "$core_wait_port" && return 0
+        if core_pid_is_ours; then
+            core_probe_port "$core_wait_port" && return 0
+        else
+            # Forked children may not have exec'd the ELF yet on a busy phone.
+            # Do not mistake the short interpreter window for a failed core.
+            pid_is_alive "$CORE_PID" || return 2
+        fi
         sleep 1
         core_wait_count=$((core_wait_count + 1))
     done
@@ -71,9 +82,11 @@ core_prepare_runtime_config() {
     sed -i "/^http:/,/^[^[:space:]]/ s#^[[:space:]]*address: 127.0.0.1:[0-9][0-9]*#  address: 127.0.0.1:$PORT_WEB#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
     sed -i "/^dns:/,/^[^[:space:]]/ s#^[[:space:]]*port: [0-9][0-9]*#  port: $PORT_DNS#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
     # DNS remains loopback-only; both families must have a real listener.
-    awk '
+    core_bind6=false
+    if awk '$1 == "00000000000000000000000000000001" && $6 == "lo" { found=1 } END { exit !found }' /proc/net/if_inet6 2>/dev/null; then core_bind6=true; fi
+    awk -v ipv6="$core_bind6" '
         /^dns:/ { dns=1; print; next }
-        dns && /^  bind_hosts:/ { print "  bind_hosts:\n    - 127.0.0.1\n    - ::1"; skip=1; next }
+        dns && /^  bind_hosts:/ { print "  bind_hosts:\n    - 127.0.0.1"; if (ipv6 == "true") print "    - ::1"; skip=1; next }
         skip && /^    / { next }
         { skip=0; if (/^[^[:space:]]/) dns=0; print }
     ' "$core_config_tmp" > "$core_config_tmp.bind" || return 1
@@ -186,6 +199,10 @@ core_stop() {
 core_start() {
     CORE_BINARY="$AGH_ROOT/bin/AdGuardHome"
     [ -x "$CORE_BINARY" ] || { core_state_write failed missing_binary; return 1; }
+    if [ ! -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ]; then
+        core_restore_initial_template || return 1
+        [ -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ] || write_default_config "$MODDIR/config/default.yaml" "$AGH_CONFIG_DIR/AdGuardHome.yaml" || { core_state_write failed missing_config; return 1; }
+    fi
     [ -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" ] || { core_state_write failed missing_config; return 1; }
     validate_agh_yaml "$AGH_CONFIG_DIR/AdGuardHome.yaml" || { core_state_write failed invalid_config; return 1; }
     load_or_allocate_ports "$AGH_STATE_DIR/ports.conf" || { core_state_write failed invalid_ports; return 1; }
@@ -215,7 +232,11 @@ core_start() {
         esac
         core_prepare_runtime_config || { core_state_write failed runtime_config; return 1; }
     fi
-    export SSL_CERT_DIR=${SSL_CERT_DIR:-/system/etc/security/cacerts/}
+    if [ -z "${SSL_CERT_DIR:-}" ]; then
+        if [ -d /apex/com.android.conscrypt/cacerts ]; then SSL_CERT_DIR=/apex/com.android.conscrypt/cacerts;
+        else SSL_CERT_DIR=/system/etc/security/cacerts; fi
+    fi
+    export SSL_CERT_DIR
     core_start_process
     CORE_FIREWALL_AUTHORIZED=0
     if ! core_wait_for_port "$PORT_WEB" "${CORE_START_WAIT:-30}"; then
@@ -262,6 +283,7 @@ core_start() {
         return 1
     fi
     CORE_FIREWALL_AUTHORIZED=1
+    core_probe_ipv6_dns || true
     core_state_write ready ready
 }
 
@@ -276,6 +298,7 @@ core_once() {
         CORE_PID=$(cat "$AGH_RUN_DIR/core.pid")
         if core_pid_is_ours && load_or_allocate_ports "$AGH_STATE_DIR/ports.conf" && core_probe_port "$PORT_WEB" && core_probe_port "$PORT_DNS"; then
             CORE_FIREWALL_AUTHORIZED=1
+            core_probe_ipv6_dns || true
             core_state_write ready existing
             return 0
         fi

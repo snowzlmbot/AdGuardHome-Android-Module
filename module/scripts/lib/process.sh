@@ -18,6 +18,12 @@ pid_is_ours() {
     case "$proc_cmdline" in
         "$expected_path"*) return 0 ;;
     esac
+    # A shell script's executable is the interpreter, not the script itself.
+    case "$proc_exe" in
+        */sh|*/dash|*/ash|*/busybox|*/bash)
+            case " $proc_cmdline " in *" $expected_path "*) return 0 ;; esac
+            ;;
+    esac
     return 1
 }
 

@@ -1,5 +1,20 @@
 #!/system/bin/sh
 
+# Make worker commands independent of the Root manager's launch shell.
+if [ "${AGH_COMMAND_ENV_READY:-0}" != 1 ]; then
+    AGH_BUSYBOX=
+    for agh_busybox in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do
+        if [ -x "$agh_busybox" ]; then AGH_BUSYBOX=$agh_busybox; break; fi
+    done
+    if [ -n "$AGH_BUSYBOX" ]; then
+        PATH="${AGH_BUSYBOX%/*}:$PATH"
+        ASH_STANDALONE=1
+        export PATH ASH_STANDALONE AGH_BUSYBOX
+    fi
+    AGH_COMMAND_ENV_READY=1
+    export AGH_COMMAND_ENV_READY
+fi
+
 MODDIR=${MODDIR:-${0%/*}}
 AGH_ROOT=${AGH_ROOT:-/data/adb/agh}
 AGH_CONFIG_DIR=${AGH_CONFIG_DIR:-$AGH_ROOT/config}
@@ -8,6 +23,14 @@ AGH_RUN_DIR=${AGH_RUN_DIR:-$AGH_ROOT/run}
 AGH_LOG_DIR=${AGH_LOG_DIR:-$AGH_ROOT/logs}
 AGH_BACKUP_DIR=${AGH_BACKUP_DIR:-$AGH_ROOT/backup}
 AGH_DATA_DIR=${AGH_DATA_DIR:-$AGH_ROOT/data}
+
+agh_run_script() {
+    if [ -n "${AGH_BUSYBOX:-}" ]; then
+        "$AGH_BUSYBOX" sh "$@"
+    else
+        sh "$@"
+    fi
+}
 
 ensure_dirs() {
     mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH_LOG_DIR" "$AGH_BACKUP_DIR" "$AGH_DATA_DIR"

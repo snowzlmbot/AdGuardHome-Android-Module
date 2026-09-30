@@ -15,8 +15,8 @@ if command -v ensure_dirs >/dev/null 2>&1; then
     ensure_dirs
 fi
 
-if [ -x "$MODDIR/scripts/lifecycle/supervisor.sh" ]; then
-    sh "$MODDIR/scripts/lifecycle/supervisor.sh" daemon >/dev/null 2>&1 &
+if [ -f "$MODDIR/scripts/lifecycle/supervisor.sh" ]; then
+    agh_run_script "$MODDIR/scripts/lifecycle/supervisor.sh" daemon >>"$AGH_LOG_DIR/supervisor.log" 2>&1 &
 else
     log_message service "supervisor.sh is not installed"
 fi

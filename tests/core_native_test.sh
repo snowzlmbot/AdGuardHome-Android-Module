@@ -49,7 +49,11 @@ if grep -q '^users:[[:space:]]*\[\]' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then fa
 grep -F 'password: $2' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'bcrypt password hash missing'
 grep -F 'https://1.12.12.12/dns-query' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'mode upstream policy was not applied'
 web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
-curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
+if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
+else
+    wget -qO /dev/null --timeout=5 "http://127.0.0.1:$web_port/" || fail 'native Web UI not reachable'
+fi
 python3 "$ROOT/tests/dns_protocol_test.py" || fail 'native DNS filtering/protocol regression failed'
 sh "$ROOT/module/scripts/core/core-worker.sh" stop || fail 'native core stop failed'
 printf '%s\n' 'native core tests passed'

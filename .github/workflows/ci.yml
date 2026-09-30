@@ -15,7 +15,9 @@ jobs:
       - name: Install BusyBox
         run: sudo apt-get update && sudo apt-get install -y busybox-static
       - name: Run DNS filter regressions
-        run: python3 tests/dns_filter_regression.py
+        run: |
+          python3 tests/dns_filter_regression.py
+          python3 tests/boot_regression_test.py
       - name: Run fixture tests
         shell: sh
         run: |
@@ -67,6 +69,17 @@ jobs:
           chmod +x tests/fixtures/probe-success.sh
           sudo -E env CORE_NATIVE_BINARY="$RUNNER_TEMP/binaries/amd64/AdGuardHome" sh tests/core_native_test.sh
           unzip -t dist/*.zip
+          python3 tests/validate_module_zip.py dist/*.zip
+      - name: Run BusyBox startup without curl
+        run: |
+          mkdir -p "$RUNNER_TEMP/android-bin"
+          busybox --install -s "$RUNNER_TEMP/android-bin"
+          ln -sf "$(command -v python3)" "$RUNNER_TEMP/android-bin/python3"
+          ln -sf "$(command -v curl)" "$RUNNER_TEMP/android-bin/curl"
+          ln -sf "$(command -v sh)" "$RUNNER_TEMP/android-bin/sh"
+          sudo -E env CORE_NATIVE_BINARY="$RUNNER_TEMP/binaries/amd64/AdGuardHome" PATH="$RUNNER_TEMP/android-bin" /usr/bin/busybox sh tests/core_native_test.sh
+          rm "$RUNNER_TEMP/android-bin/curl"
+          sudo -E env CORE_NATIVE_BINARY="$RUNNER_TEMP/binaries/amd64/AdGuardHome" PATH="$RUNNER_TEMP/android-bin" /usr/bin/busybox sh tests/core_native_test.sh
       - uses: actions/upload-artifact@v4
         with:
           name: module-candidate-${{ github.sha }}

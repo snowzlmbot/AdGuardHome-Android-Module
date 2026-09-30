@@ -51,7 +51,7 @@ supervisor_run_worker() {
     [ -x "$supervisor_worker" ] || return 0
     supervisor_worker_log="$AGH_LOG_DIR/$supervisor_name-worker.log"
     log_rotate_file "$supervisor_worker_log"
-    sh "$supervisor_worker" once >>"$supervisor_worker_log" 2>&1
+    agh_run_script "$supervisor_worker" once >>"$supervisor_worker_log" 2>&1
     supervisor_rc=$?
     if [ "$supervisor_rc" -ne 0 ]; then
         log_message supervisor "$supervisor_name worker exited with status $supervisor_rc"
@@ -82,7 +82,7 @@ supervisor_consume_control() {
     fi
     if [ -f "$supervisor_control_dir/restart-core" ]; then
         supervisor_worker="$SCRIPT_DIR/../core/core-worker.sh"
-        [ -x "$supervisor_worker" ] && sh "$supervisor_worker" stop >/dev/null 2>&1 || true
+        [ -x "$supervisor_worker" ] && agh_run_script "$supervisor_worker" stop >/dev/null 2>&1 || true
         rm -f "$supervisor_control_dir/restart-core"
     fi
 }
@@ -144,9 +144,34 @@ supervisor_aggregate() {
     supervisor_update_module_description
 }
 
+supervisor_acquire_cycle_lock() {
+    supervisor_lock_dir="$AGH_RUN_DIR/supervisor.lock"
+    if ! mkdir "$supervisor_lock_dir" 2>/dev/null; then
+        supervisor_lock_pid=$(sed -n '1p' "$supervisor_lock_dir/pid" 2>/dev/null)
+        if pid_is_ours "$supervisor_lock_pid" "$SCRIPT_DIR/supervisor.sh"; then return 1; fi
+        # An ownerless lock may be in its mkdir-to-PID window. Recheck once.
+        if [ -z "$supervisor_lock_pid" ]; then
+            sleep 1
+            supervisor_lock_pid=$(sed -n '1p' "$supervisor_lock_dir/pid" 2>/dev/null)
+            pid_is_ours "$supervisor_lock_pid" "$SCRIPT_DIR/supervisor.sh" && return 1
+        fi
+        rm -f "$supervisor_lock_dir/pid"
+        rmdir "$supervisor_lock_dir" 2>/dev/null || return 1
+        mkdir "$supervisor_lock_dir" 2>/dev/null || return 1
+    fi
+    printf '%s\n' "$$" > "$supervisor_lock_dir/pid"
+}
+
+supervisor_release_cycle_lock() {
+    if [ "$(sed -n '1p' "$AGH_RUN_DIR/supervisor.lock/pid" 2>/dev/null)" = "$$" ]; then
+        rm -f "$AGH_RUN_DIR/supervisor.lock/pid"
+        rmdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || true
+    fi
+}
+
 supervisor_once() {
     ensure_dirs || return 1
-    mkdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || return 0
+    supervisor_acquire_cycle_lock || return 0
     SUPERVISOR_CYCLE=$(( ${SUPERVISOR_CYCLE:-0} + 1 ))
     module_detect_language || MODULE_LANG=en
     supervisor_consume_control
@@ -182,7 +207,7 @@ supervisor_once() {
         fi
     fi
     supervisor_aggregate
-    rmdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || true
+    supervisor_release_cycle_lock
 }
 
 supervisor_daemon_cleanup() {
@@ -190,14 +215,14 @@ supervisor_daemon_cleanup() {
     if [ -f "$supervisor_pid_file" ] && [ "$(sed -n '1p' "$supervisor_pid_file")" = "$$" ]; then
         rm -f "$supervisor_pid_file"
     fi
-    rmdir "$AGH_RUN_DIR/supervisor.lock" 2>/dev/null || true
+    supervisor_release_cycle_lock
 }
 
 supervisor_daemon() {
     ensure_dirs || return 1
     supervisor_pid_file="$AGH_RUN_DIR/supervisor.pid"
     supervisor_old_pid=$(sed -n '1p' "$supervisor_pid_file" 2>/dev/null || true)
-    if pid_is_alive "$supervisor_old_pid"; then
+    if pid_is_ours "$supervisor_old_pid" "$SCRIPT_DIR/supervisor.sh"; then
         return 0
     fi
     rm -f "$AGH_RUN_DIR/stop"

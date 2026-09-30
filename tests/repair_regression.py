@@ -192,9 +192,10 @@ exit 0
         worker = MODULE / "scripts" / "firewall" / "firewall-worker.sh"
         run(["sh", str(worker), "once"], env=env)
         trace = log.read_text()
+        assert_contains(trace, "--uid-owner 0 -j RETURN")
         for ip in ("223.5.5.5", "119.29.29.29"):
-            assert_contains(trace, f"-d {ip} -p udp --dport 53 -j RETURN")
-            assert_contains(trace, f"-d {ip} -p tcp --dport 53 -j RETURN")
+            if f"-d {ip} -p udp --dport 53 -j RETURN" in trace:
+                raise AssertionError("application DNS can bypass filtering through a global upstream exception")
 
 
 def test_udp_port_is_not_reported_free() -> None:
