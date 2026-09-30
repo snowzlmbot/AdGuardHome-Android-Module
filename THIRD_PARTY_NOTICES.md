@@ -29,6 +29,11 @@
 - GOODBYEADS: https://github.com/8680/GOODBYEADS
 - Hostlists Registry / URLHaus: https://adguardteam.github.io/HostlistsRegistry/
 
+- Bundled snapshot: `rules/anti-ad-easylist.txt`, upstream commit `8844e57276de1994b2f222c42d87dc7d9affee09`.
+- Source: https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/8844e57276de1994b2f222c42d87dc7d9affee09/anti-ad-easylist.txt
+- SHA-256: `af74155ec0ee7cdf276d98129bc744695d3d3ed68d308c727bcc0c32fe83c46b`.
+- License text: `licenses/anti-AD-MIT.txt`. Runtime subscription: https://anti-ad.net/easylist.txt
+
 规则快照的来源、版本、校验和与许可证信息应随对应 Release 记录。
 
 ## Distribution files

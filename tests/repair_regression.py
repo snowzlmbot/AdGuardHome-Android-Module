@@ -176,7 +176,7 @@ def test_firewall_exempts_all_plain_dns_upstreams() -> None:
         fake = """#!/bin/sh
 printf '%s %s\\n' "$0" "$*" >> "$FIREWALL_TEST_LOG"
 case " $* " in
-  *" -C "*|*" -L "*) exit 1 ;;
+  *" -C "*|*" -L "*|*" -D "*) exit 1 ;;
 esac
 exit 0
 """

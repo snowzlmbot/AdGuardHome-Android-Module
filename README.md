@@ -8,9 +8,7 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
-> 当前版本：**0.1.13**
->
-> 直接下载：[AdGuardHome-Android-Module-0.1.13-agh-0.107.79.zip](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.13/AdGuardHome-Android-Module-0.1.13-agh-0.107.79.zip)
+> 构建中：**0.1.17**。发布前请以 [CI 修复分支](https://github.com/snowzlmbot/AdGuardHome-Android-Module/tree/fix/ksu-clone-dns-filtering) 的已验证 artifact 为准；不要刷 Source ZIP。
 
 ## 项目入口
 
@@ -69,7 +67,7 @@
 - DNS 模式 2：纯加密上游，默认推荐；
 - DNS 模式 3：Bootstrap；
 - IPv6 DNS 防泄漏：默认开启；
-- TCP/UDP 853 防泄漏：默认开启；
+- TCP/UDP 853 防泄漏：默认关闭（严格私人 DNS 开启时强制拦截会断网）；
 - 代理适配：默认关闭；
 - 文件级去广告：默认关闭。
 
@@ -163,6 +161,12 @@ AdGuardHome-Android-Module/
 ```
 
 详细目录规范：[`docs/MODULE_LAYOUT.md`](docs/MODULE_LAYOUT.md)
+
+## 0.1.17 故障排查
+
+见 [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)。安装包和 Actions artifact 外层 ZIP 不同；KSU 的 archive 错误通常发生在读取根目录 `module.prop` 时。
+
+过滤测试时请暂时关闭 Android 私人 DNS、应用自带 DoH 和 VPN，确认核心与防火墙均 ready。VPN 兼容模式会明确绕过过滤；微信同域信息流广告不属于 DNS 能保证移除的范围。
 
 ## 许可证、致谢与安全
 

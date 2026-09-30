@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.17
+
+- Strengthened the KernelSU archive contract: validation rejects Source ZIPs, wrapper directories, missing runtime entries, and damaged payloads before delivery.
+- Recovered stale supervisor locks and foreign PID files after reboot instead of silently skipping startup.
+- Made workers use the KernelSU-provided BusyBox shell environment, logged startup failures, and made the Android CA path explicit for encrypted upstreams.
+- Kept cloned-user DNS on the module-owned path, stopped globally exempting application DNS to upstreams, and disabled strict port-853 blocking by default because it can make Private DNS clients lose all connectivity.
+- Added an offline, checksummed anti-AD seed with filtering enabled by default; explicit user filter removals and custom lists remain untouched.
+- Extended file cleanup safety for Android user/profile paths, including Coolapk/WeChat-compatible package data handling without deleting protected databases or app roots.
+
 ## 0.1.16
 
 - Added WebUI URL fields for cloud rule resources, SHA-256 links, and GitHub parsed-file links; GitHub blob URLs are normalized to raw URLs.
