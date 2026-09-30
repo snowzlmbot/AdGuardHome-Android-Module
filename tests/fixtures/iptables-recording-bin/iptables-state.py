@@ -65,7 +65,7 @@ def main():
                 return 1
         if "-j" in rule:
             target = rule[rule.index("-j") + 1]
-            if target not in ("ACCEPT", "DROP", "REJECT", "RETURN", "REDIRECT") and target not in chains:
+            if target not in ("ACCEPT", "DROP", "REJECT", "RETURN", "REDIRECT", "DNAT") and target not in chains:
                 return 1
         if command == "-A":
             chains[chain].append(rule)
