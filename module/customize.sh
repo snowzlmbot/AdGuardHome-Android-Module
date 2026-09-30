@@ -12,7 +12,7 @@ fi
 
 ui_print "- AdGuardHome Android Module"
 ui_print "- Extracting module files"
-unzip -o "$ZIPFILE" 'module.prop' 'customize.sh' 'service.sh' 'action.sh' 'boot-completed.sh' 'uninstall.sh' 'scripts/*' 'config/*' 'targets/*' 'webroot/*' 'bin/*' 'LICENSE*' 'CREDITS.md' 'THIRD_PARTY_NOTICES.md' -d "$MODPATH" >/dev/null 2>&1 || {
+unzip -o "$ZIPFILE" 'module.prop' 'customize.sh' 'service.sh' 'action.sh' 'boot-completed.sh' 'uninstall.sh' 'scripts/*' 'config/*' 'rules/*' 'targets/*' 'webroot/*' 'bin/*' 'licenses/*' 'sbom/*' 'SHA256SUMS' 'Update.json' 'README*' 'CHANGELOG.md' 'SECURITY.md' 'RELEASE_PROVENANCE.md' 'LICENSE*' 'CREDITS.md' 'THIRD_PARTY_NOTICES.md' -d "$MODPATH" >/dev/null 2>&1 || {
     ui_print "! Module extraction failed"
     exit 1
 }

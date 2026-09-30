@@ -125,8 +125,8 @@ case "$control_command" in
         control_sync_supervisor
         printf 'request=file-apply\npackage=%s\n' "${control_argument:-all}"
         ;;
-    set-mode) control_set_mode "$control_argument"; control_sync_supervisor; printf 'mode=%s\n' "$control_argument" ;;
-    set-policy) control_set_policy "$control_argument" "$control_value"; control_sync_supervisor; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
+    set-mode) control_set_mode "$control_argument" || exit 1; control_sync_supervisor; printf 'mode=%s\n' "$control_argument" ;;
+    set-policy) control_set_policy "$control_argument" "$control_value" || exit 1; control_sync_supervisor; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
     enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor; printf '%s\n' 'request=enable-proxy' ;;
     disable-proxy) control_set_adapter proxy false; control_set_selection_marker proxy false; [ -x "$SCRIPT_DIR/../adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/../adapters/proxy-worker.sh" --clean || true; control_sync_supervisor; printf '%s\n' 'request=disable-proxy' ;;
     enable-file) control_set_adapter file true; control_set_selection_marker file_adapter true; control_sync_supervisor; printf '%s\n' 'request=enable-file' ;;

@@ -45,5 +45,6 @@ grep -F 'password: $2' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'bc
 grep -F 'https://1.12.12.12/dns-query' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'mode upstream policy was not applied'
 web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
 curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
+python3 "$ROOT/tests/dns_protocol_test.py" || fail 'native DNS filtering/protocol regression failed'
 sh "$ROOT/module/scripts/core/core-worker.sh" stop || fail 'native core stop failed'
 printf '%s\n' 'native core tests passed'

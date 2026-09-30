@@ -8,6 +8,7 @@ export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
 . "$MODULE_SCRIPTS_DIR/lib/config.sh"
 . "$MODULE_SCRIPTS_DIR/lib/agh-config.sh"
+. "$MODULE_SCRIPTS_DIR/lib/dns-filters.sh"
 . "$MODULE_SCRIPTS_DIR/lib/platform.sh"
 . "$MODULE_SCRIPTS_DIR/lib/credentials.sh"
 . "$MODULE_SCRIPTS_DIR/lib/process.sh"
@@ -69,6 +70,15 @@ core_prepare_runtime_config() {
     cp "$core_runtime_config" "$core_config_tmp" || return 1
     sed -i "/^http:/,/^[^[:space:]]/ s#^[[:space:]]*address: 127.0.0.1:[0-9][0-9]*#  address: 127.0.0.1:$PORT_WEB#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
     sed -i "/^dns:/,/^[^[:space:]]/ s#^[[:space:]]*port: [0-9][0-9]*#  port: $PORT_DNS#" "$core_config_tmp" || { rm -f "$core_config_tmp"; return 1; }
+    # DNS remains loopback-only; both families must have a real listener.
+    awk '
+        /^dns:/ { dns=1; print; next }
+        dns && /^  bind_hosts:/ { print "  bind_hosts:\n    - 127.0.0.1\n    - ::1"; skip=1; next }
+        skip && /^    / { next }
+        { skip=0; if (/^[^[:space:]]/) dns=0; print }
+    ' "$core_config_tmp" > "$core_config_tmp.bind" || return 1
+    mv -f "$core_config_tmp.bind" "$core_config_tmp" || return 1
+    "$CORE_BINARY" --config "$core_config_tmp" --work-dir "$AGH_DATA_DIR" --check-config >/dev/null 2>&1 || { rm -f "$core_config_tmp"; return 1; }
     chmod 0600 "$core_config_tmp"
     agh_sync
     agh_move "$core_config_tmp" "$core_runtime_config" || return 1
@@ -185,6 +195,7 @@ core_start() {
         cp -f "$AGH_CONFIG_DIR/AdGuardHome.yaml" "$AGH_BACKUP_DIR/pre-initial-setup.yaml" || { core_state_write failed config_backup; return 1; }
         rm -f "$AGH_CONFIG_DIR/AdGuardHome.yaml"
     else
+        agh_initialize_dns_filters "$AGH_CONFIG_DIR/AdGuardHome.yaml" || { core_state_write failed dns_filter_seed; return 1; }
         core_apply_querylog_defaults || { core_state_write failed querylog_config; return 1; }
         core_policy_mode=$(sed -n 's/^mode=//p' "$AGH_STATE_DIR/upstream-policy.conf" 2>/dev/null | sed -n '1p')
         case "$core_policy_mode" in
@@ -228,6 +239,10 @@ core_start() {
             return 1
         fi
         core_stop
+        # First setup produces upstream defaults; add our offline list before
+        # the final start rather than depending on a network download.
+        agh_initialize_dns_filters "$AGH_CONFIG_DIR/AdGuardHome.yaml" fresh || { core_state_write failed dns_filter_seed; return 1; }
+        sed -i '/^dns:/,/^[^[:space:]]/ s/^  ratelimit: 20$/  ratelimit: 0/' "$AGH_CONFIG_DIR/AdGuardHome.yaml" || return 1
         if ! core_apply_selected_mode; then
             core_restore_initial_template || true
             core_state_write failed mode_configuration
