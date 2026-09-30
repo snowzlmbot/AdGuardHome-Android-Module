@@ -62,14 +62,24 @@ agh_apply_mode() {
     agh_has_timeout=0
     agh_has_cache_optimistic=0
     agh_skip=0
+    agh_in_dns=0
     while IFS= read -r agh_line || [ -n "$agh_line" ]; do
         case "$agh_line" in
-            "  upstream_dns:")
+            dns:) agh_in_dns=1 ;;
+            [![:space:]]*) agh_in_dns=0 ;;
+        esac
+        if [ "$agh_in_dns" -eq 0 ]; then
+            agh_skip=0
+            printf '%s\n' "$agh_line"
+            continue
+        fi
+        case "$agh_line" in
+            "  upstream_dns:"*)
                 agh_print_upstream
                 agh_has_upstream=1
                 agh_skip=1
                 ;;
-            "  bootstrap_dns:")
+            "  bootstrap_dns:"*)
                 agh_print_bootstrap
                 agh_has_bootstrap=1
                 agh_skip=1

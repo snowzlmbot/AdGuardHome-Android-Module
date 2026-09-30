@@ -47,15 +47,15 @@ class DNSFilterRegression(unittest.TestCase):
 
     def test_default_filter_is_seeded_before_first_start(self):
         self.yaml.write_text("http:\n  address: 127.0.0.1:3000\ndns:\n  port: 5591\nfilters: []\nfiltering:\n  filtering_enabled: true\n")
-        result = self.helper('agh_seed_dns_filter "$AGH_CONFIG_DIR/AdGuardHome.yaml"')
+        result = self.helper('agh_initialize_dns_filters "$AGH_CONFIG_DIR/AdGuardHome.yaml"')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("anti-ad-easylist.txt", self.yaml.read_text())
-        cache = self.root / "data/data/filters/1700000000.txt"
+        self.assertIn("https://anti-ad.net/easylist.txt", self.yaml.read_text())
+        cache = self.root / "data/data/filters/10001.txt"
         self.assertEqual(cache.read_bytes(), (MODULE / "rules/anti-ad-easylist.txt").read_bytes())
 
     def test_custom_filter_and_explicit_disable_survive_seed_and_restart(self):
         self.yaml.write_text("http:\n  address: 127.0.0.1:3000\ndns:\n  port: 5591\nfilters:\n  - enabled: false\n    url: https://example.org/custom.txt\n    name: Mine\n    id: 42\nfiltering:\n  filtering_enabled: false\n")
-        body = 'agh_seed_dns_filter "$AGH_CONFIG_DIR/AdGuardHome.yaml"'
+        body = 'agh_initialize_dns_filters "$AGH_CONFIG_DIR/AdGuardHome.yaml"'
         result = self.helper(body)
         self.assertEqual(result.returncode, 0, result.stderr)
         first = self.yaml.read_bytes()
@@ -70,6 +70,17 @@ class DNSFilterRegression(unittest.TestCase):
         result = self.helper(body)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.yaml.read_text(), "filters: []\n")
+
+    def test_mode_edit_is_scoped_to_dns_and_accepts_inline_lists(self):
+        extra = "other:\n  upstream_timeout: 99s\n  cache_optimistic: false\n"
+        self.yaml.write_text("dns:\n  port: 5591\n  upstream_dns: []\n  bootstrap_dns: []\n" + extra)
+        helpers = " ".join(f'. {shlex.quote(str(MODULE / "scripts/lib" / name))};' for name in ("common.sh", "agh-config.sh"))
+        result = subprocess.run(["sh", "-c", helpers + ' agh_apply_mode 3'], env=self.env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = self.yaml.read_text()
+        self.assertEqual(text.count("  upstream_dns:"), 1)
+        self.assertEqual(text.count("  bootstrap_dns:"), 1)
+        self.assertIn(extra, text)
 
     def test_invalid_control_requests_fail_without_success_message(self):
         for args in [("set-mode", "99"), ("set-policy", "arbitrary", "true"),
