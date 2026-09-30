@@ -33,7 +33,8 @@ class DNSFilterRegression(unittest.TestCase):
     def helper(self, body):
         common = shlex.quote(str(MODULE / "scripts/lib/common.sh"))
         filters = shlex.quote(str(MODULE / "scripts/lib/dns-filters.sh"))
-        return subprocess.run(["sh", "-c", f". {common}; . {filters}; {body}"],
+        atomic = shlex.quote(str(MODULE / "scripts/lib/atomic.sh"))
+        return subprocess.run(["sh", "-c", f". {common}; . {atomic}; . {filters}; {body}"],
                               env=self.env, text=True, capture_output=True)
 
     def test_pinned_offline_rules_have_valid_digest_and_ad_domains(self):

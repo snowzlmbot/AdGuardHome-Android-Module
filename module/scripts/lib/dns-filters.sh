@@ -3,8 +3,15 @@
 # Seed only the module-owned list; preserve dashboard choices and caches.
 agh_seed_dns_filters() {
     seed_yaml=${1:-$AGH_CONFIG_DIR/AdGuardHome.yaml}
-    grep -q 'id: 10001$' "$seed_yaml" || return 0
-    grep -q 'url: https://anti-ad.net/easylist.txt$' "$seed_yaml" || return 0
+    awk '
+        function check() { if (id == 10001 && url == "https://anti-ad.net/easylist.txt") found=1 }
+        /^filters:/ { section=1; next }
+        section && /^[^[:space:]]/ { check(); section=0 }
+        section && /^  - / { check(); id=0; url="" }
+        section && /id:/ { id=$2 }
+        section && /url:/ { url=$2 }
+        END { check(); exit !found }
+    ' "$seed_yaml" || return 0
     seed_dir="$AGH_DATA_DIR/data/filters"
     [ ! -s "$seed_dir/10001.txt" ] || return 0
     seed_source="$MODDIR/rules/anti-ad-easylist.txt"
