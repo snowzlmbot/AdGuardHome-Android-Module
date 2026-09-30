@@ -70,6 +70,7 @@ jobs:
           sudo -E env CORE_NATIVE_BINARY="$RUNNER_TEMP/binaries/amd64/AdGuardHome" sh tests/core_native_test.sh
           unzip -t dist/*.zip
           python3 tests/validate_module_zip.py dist/*.zip
+          python3 tests/installer_contract_test.py dist/*.zip
       - name: Run BusyBox startup without curl
         run: |
           mkdir -p "$RUNNER_TEMP/android-bin"

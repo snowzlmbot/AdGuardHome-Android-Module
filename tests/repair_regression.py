@@ -127,14 +127,15 @@ def test_proxy_manifest_is_idempotent() -> None:
 def test_file_adapter_skips_changed_target_and_continues() -> None:
     with tempfile.TemporaryDirectory() as td:
         root = pathlib.Path(td)
-        changed = root / "changed"
-        untouched = root / "untouched"
+        changed = root / "android/user/0/com.zhihu.android/files/ad"
+        untouched = root / "android/user/0/tv.danmaku.bili/files/splash2"
         write(changed / "cached.bin", "original")
         write(untouched / "cached.bin", "original")
         manifest_source = root / "targets.conf"
-        write(manifest_source, f"changed|{changed}|directory|medium|if-unchanged|com.example.changed|active\nuntouched|{untouched}|directory|medium|if-unchanged|com.example.untouched|active\n")
+        write(manifest_source, "changed|/data/user/0/com.zhihu.android/files/ad|directory|medium|if-unchanged|com.zhihu.android|active\nuntouched|/data/user/0/tv.danmaku.bili/files/splash2|directory|medium|if-unchanged|tv.danmaku.bili|active\n")
         write(root / "config" / "file-adapter.conf", f"enabled=true\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n")
         env = runtime_env(root)
+        env["AGH_FILE_DATA_ROOT"] = str(root / "android")
         worker = MODULE / "scripts" / "adapters" / "file-worker.sh"
         run(["sh", str(worker), "once"], env=env)
         write(changed / "new.bin", "new data")
@@ -152,16 +153,17 @@ def test_file_adapter_skips_changed_target_and_continues() -> None:
 def test_file_adapter_package_filter_does_not_create_placeholders() -> None:
     with tempfile.TemporaryDirectory() as td:
         root = pathlib.Path(td)
-        installed = root / "installed"
-        absent = root / "absent"
+        installed = root / "android/user/0/com.zhihu.android/files/ad"
+        absent = root / "android/user/0/tv.danmaku.bili/files/splash2"
         write(installed / "ad.bin", "ad")
         manifest_source = root / "targets.conf"
-        write(manifest_source, f"installed|{installed}|directory|medium|if-unchanged|com.example.installed|active\nabsent|{absent}|directory|medium|if-unchanged|com.example.absent|active\n")
+        write(manifest_source, "installed|/data/user/0/com.zhihu.android/files/ad|directory|medium|if-unchanged|com.zhihu.android|active\nabsent|/data/user/0/tv.danmaku.bili/files/splash2|directory|medium|if-unchanged|tv.danmaku.bili|active\n")
         write(root / "config" / "file-adapter.conf", f"enabled=false\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n")
         env = runtime_env(root)
         env["FILE_FORCE_ONCE"] = "1"
+        env["AGH_FILE_DATA_ROOT"] = str(root / "android")
         worker = MODULE / "scripts" / "adapters" / "file-worker.sh"
-        run(["sh", str(worker), "once", "com.example.installed"], env=env)
+        run(["sh", str(worker), "once", "com.zhihu.android"], env=env)
         if absent.exists():
             raise AssertionError("file adapter created a placeholder for an absent app")
         if any(installed.iterdir()):
