@@ -6,6 +6,7 @@
 - Pin compatible cloud rules and migrate the old default URL without replacing custom sources.
 - Separate cloud download from file cleanup and expose phase-specific errors.
 - Replace optional flock with a portable PID/start-time cycle lock.
+- Ship a static certificate-verifying HTTPS fetch helper to avoid BusyBox TLS build differences; reject plaintext, invalid certificates, insecure redirects and oversized payloads.
 
 ## 0.1.18
 

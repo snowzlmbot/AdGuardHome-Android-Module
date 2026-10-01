@@ -29,6 +29,7 @@ with tempfile.TemporaryDirectory() as tmp:
     for entry in ('service.sh', 'boot-completed.sh', 'scripts/core/core-worker.sh', 'rules/anti-ad-easylist.txt', 'licenses/anti-AD-MIT.txt', 'sbom/SPDX.json'):
         assert (module / entry).is_file(), entry
     assert (module / 'scripts/core/core-worker.sh').stat().st_mode & 0o111
+    assert (root / 'runtime/bin/agh-http-fetch').stat().st_mode & 0o111
     before = (root / 'runtime/config/mode.conf').read_bytes()
     env['ARCH'] = 'x86'
     rejected = subprocess.run(['busybox', 'sh', '-c', shell], env=env, text=True, capture_output=True, timeout=30)

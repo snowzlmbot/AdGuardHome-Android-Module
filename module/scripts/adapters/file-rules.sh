@@ -89,8 +89,13 @@ file_rules_download() {
     file_rules_download_dest=$2
     file_rules_download_tmp="$file_rules_download_dest.part.$$"
     rm -f "$file_rules_download_tmp"
-    if command -v curl >/dev/null 2>&1; then
+    file_rules_helper=${AGH_FETCH_BIN:-$AGH_ROOT/bin/agh-http-fetch}
+    if [ -x "$file_rules_helper" ]; then
+        "$file_rules_helper" "$file_rules_download_url" "$file_rules_download_tmp" "$FILE_RULES_MAX_BYTES" || { rm -f "$file_rules_download_tmp"; return 1; }
+    elif command -v curl >/dev/null 2>&1; then
         curl -fL --retry 3 --connect-timeout 10 --max-time 120 --silent --show-error "$file_rules_download_url" -o "$file_rules_download_tmp" || { rm -f "$file_rules_download_tmp"; return 1; }
+    elif command -v toybox >/dev/null 2>&1 && toybox wget --help >/dev/null 2>&1; then
+        toybox wget -qO "$file_rules_download_tmp" --timeout=120 "$file_rules_download_url" || { rm -f "$file_rules_download_tmp"; return 1; }
     elif command -v wget >/dev/null 2>&1; then
         wget -qO "$file_rules_download_tmp" --timeout=120 "$file_rules_download_url" || { rm -f "$file_rules_download_tmp"; return 1; }
     else

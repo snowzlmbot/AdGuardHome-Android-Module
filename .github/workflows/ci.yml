@@ -26,9 +26,10 @@ jobs:
           python3 tests/cloud_rules_live_test.py
       - name: Verify actual cloud download with BusyBox only
         run: |
+          sh build/build-fetch-helper.sh "$RUNNER_TEMP/fetch"
           mkdir -p "$RUNNER_TEMP/rules-bin"
           busybox --install -s "$RUNNER_TEMP/rules-bin"
-          PATH="$RUNNER_TEMP/rules-bin" /usr/bin/python3 tests/cloud_rules_live_test.py
+          AGH_FETCH_BIN="$RUNNER_TEMP/fetch/amd64/agh-http-fetch" PATH="$RUNNER_TEMP/rules-bin" /usr/bin/python3 tests/cloud_rules_live_test.py
       - name: Run fixture tests
         shell: sh
         run: |
@@ -73,8 +74,9 @@ jobs:
       - name: Build and package candidate
         run: |
           build/build-fixed-binaries.sh 0.107.79 "$RUNNER_TEMP/binaries"
+          sh build/build-fetch-helper.sh "$RUNNER_TEMP/fetch"
           version=$(sed -n 's/^version=//p' module/module.prop)
-          AGH_BINARY_ROOT="$RUNNER_TEMP/binaries" build/package.sh "$version" 0.107.79 dist
+          AGH_FETCH_ROOT="$RUNNER_TEMP/fetch" AGH_BINARY_ROOT="$RUNNER_TEMP/binaries" build/package.sh "$version" 0.107.79 dist
           printf '%s\n' "$GITHUB_SHA" > dist/SOURCE_COMMIT
           (cd dist && sha256sum *.zip > SHA256SUMS)
       - name: Exercise the patched native binary

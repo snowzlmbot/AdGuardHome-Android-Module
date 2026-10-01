@@ -40,6 +40,8 @@ detect_arch || module_abort 'Unsupported CPU architecture'
 binary_asset="$MODPATH/bin/$AGH_ARCH/AdGuardHome"
 checksum_asset="$MODPATH/bin/$AGH_ARCH/AdGuardHome.sha256"
 verify_binary "$binary_asset" "$AGH_ARCH" "$checksum_asset" || module_abort 'Binary validation failed'
+fetch_asset="$MODPATH/bin/$AGH_ARCH/agh-http-fetch"
+verify_binary "$fetch_asset" "$AGH_ARCH" "$fetch_asset.sha256" || module_abort 'Download helper validation failed'
 
 if command -v set_perm_recursive >/dev/null 2>&1; then
     set_perm_recursive "$MODPATH" 0 0 0755 0644
@@ -82,6 +84,8 @@ binary_tmp="$AGH_ROOT/bin/.AdGuardHome.new.$$"
 cp "$binary_asset" "$binary_tmp" || module_abort 'Cannot stage the core binary'
 chmod 0755 "$binary_tmp" || module_abort 'Cannot set binary permissions'
 agh_move "$binary_tmp" "$AGH_ROOT/bin/AdGuardHome" || module_abort 'Cannot install the core binary'
+fetch_tmp="$AGH_ROOT/bin/.agh-http-fetch.$$"
+cp "$fetch_asset" "$fetch_tmp" && chmod 0755 "$fetch_tmp" && agh_move "$fetch_tmp" "$AGH_ROOT/bin/agh-http-fetch" || module_abort 'Cannot install download helper'
 
 ensure_credentials "$AGH_STATE_DIR/credentials.conf" || {
     ui_print "! Credential initialization failed"
