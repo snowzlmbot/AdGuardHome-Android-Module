@@ -16,7 +16,8 @@ with tempfile.TemporaryDirectory() as tmp:
     command=['sh',str(ROOT/'module/scripts/adapters/file-rules.sh'),'refresh']
     result=subprocess.run(command,env=env,capture_output=True,text=True,timeout=240)
     state=(root/'state/file-rules.state').read_text() if (root/'state/file-rules.state').exists() else 'no state'
-    assert result.returncode==0,(result.stderr,state)
+    download_log=(root/'logs/file-rules-worker.log').read_text() if (root/'logs/file-rules-worker.log').exists() else ''
+    assert result.returncode==0,(result.stderr,state,download_log)
     assert 'state=ready\n' in state
     assert (root/'config/file-ad-targets.conf').read_bytes()==(ROOT/'module/targets/file-ad-targets.conf').read_bytes()
     assert 'enabled=false\n' in (root/'config/file-adapter.conf').read_text()
