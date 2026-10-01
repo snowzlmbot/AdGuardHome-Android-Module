@@ -10,7 +10,7 @@ export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/agh-config.sh"
 
 control_sync_supervisor() {
-    agh_run_script "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1 || true
+    agh_run_script "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1
 }
 
 control_backup() {
@@ -120,20 +120,20 @@ case "$control_command" in
     file-rules-refresh)
         agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
         FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
-        control_sync_supervisor
+        control_sync_supervisor || exit 1
         printf 'request=file-rules-refresh\npackage=%s\n' "${control_argument:-all}"
         ;;
     file-apply)
         FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
-        control_sync_supervisor
+        control_sync_supervisor || exit 1
         printf 'request=file-apply\npackage=%s\n' "${control_argument:-all}"
         ;;
-    set-mode) control_set_mode "$control_argument" || exit 1; control_sync_supervisor; printf 'mode=%s\n' "$control_argument" ;;
-    set-policy) control_set_policy "$control_argument" "$control_value" || exit 1; control_sync_supervisor; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
-    enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor; printf '%s\n' 'request=enable-proxy' ;;
-    disable-proxy) control_set_adapter proxy false; control_set_selection_marker proxy false; [ -x "$SCRIPT_DIR/../adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/../adapters/proxy-worker.sh" --clean || true; control_sync_supervisor; printf '%s\n' 'request=disable-proxy' ;;
-    enable-file) control_set_adapter file true; control_set_selection_marker file_adapter true; control_sync_supervisor; printf '%s\n' 'request=enable-file' ;;
-    disable-file) control_set_adapter file false; control_set_selection_marker file_adapter false; [ -x "$SCRIPT_DIR/../adapters/file-worker.sh" ] && "$SCRIPT_DIR/../adapters/file-worker.sh" --clean || true; control_sync_supervisor; printf '%s\n' 'request=disable-file' ;;
+    set-mode) control_set_mode "$control_argument" || exit 1; control_sync_supervisor || exit 1; printf 'mode=%s\n' "$control_argument" ;;
+    set-policy) control_set_policy "$control_argument" "$control_value" || exit 1; control_sync_supervisor || exit 1; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
+    enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor || exit 1; printf '%s\n' 'request=enable-proxy' ;;
+    disable-proxy) control_set_adapter proxy false; control_set_selection_marker proxy false; [ -x "$SCRIPT_DIR/../adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/../adapters/proxy-worker.sh" --clean || true; control_sync_supervisor || exit 1; printf '%s\n' 'request=disable-proxy' ;;
+    enable-file) control_set_adapter file true; control_set_selection_marker file_adapter true; control_sync_supervisor || exit 1; printf '%s\n' 'request=enable-file' ;;
+    disable-file) control_set_adapter file false; control_set_selection_marker file_adapter false; [ -x "$SCRIPT_DIR/../adapters/file-worker.sh" ] && "$SCRIPT_DIR/../adapters/file-worker.sh" --clean || true; control_sync_supervisor || exit 1; printf '%s\n' 'request=disable-file' ;;
     pause|resume|enable|disable|restart-core)
         ensure_dirs || exit 1
         control_request_dir="$AGH_RUN_DIR/control"
@@ -142,7 +142,7 @@ case "$control_command" in
         printf '%s\n' "$control_command" > "$control_tmp"
         sync
         mv -f "$control_tmp" "$control_request_dir/$control_command"
-        control_sync_supervisor
+        control_sync_supervisor || exit 1
         printf '%s\n' "request=$control_command"
         ;;
     status)

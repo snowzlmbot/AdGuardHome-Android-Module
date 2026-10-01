@@ -119,6 +119,13 @@ fi
         self.assertNotIn('core:stop', self.events())
         self.assertFalse((self.root / 'run/stop').exists())
 
+    def test_control_restart_reports_remove_failure(self):
+        result = subprocess.run(['busybox', 'sh', str(MODULE / 'scripts/lifecycle/control.sh'), 'restart-core'],
+                                env=dict(self.env, FAIL_REMOVE='1'), capture_output=True, text=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('request=restart-core', result.stdout)
+        self.assertNotIn('core:stop', self.events())
+
     def test_suspend_detaches_without_stopping_supervisor(self):
         result = self.invoke('suspend-core')
         self.assertEqual(result.returncode, 0, result.stderr)
