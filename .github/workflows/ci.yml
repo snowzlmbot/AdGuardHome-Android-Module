@@ -19,6 +19,8 @@ jobs:
           python3 tests/dns_filter_regression.py
           python3 tests/boot_regression_test.py
           python3 tests/lifecycle_dns_safety_test.py
+      - name: Reproduce Android scoped DNS and broken system applets
+        run: python3 tests/android_runtime_regression.py
       - name: Run VPN and cloud-rule behavior regressions
         run: |
           node tests/webui_behavior_test.js
