@@ -18,6 +18,7 @@ jobs:
         run: |
           python3 tests/dns_filter_regression.py
           python3 tests/boot_regression_test.py
+          python3 tests/lifecycle_dns_safety_test.py
       - name: Run fixture tests
         shell: sh
         run: |
