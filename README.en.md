@@ -8,7 +8,11 @@
 
 A modular AdGuard Home integration for rooted Android devices using Magisk or KernelSU.
 
-> Current version: **0.1.20**
+> Published version: **0.1.20**
+>
+> [Installable module ZIP](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/AdGuardHome-Android-Module-0.1.20-agh-0.107.79.zip) · [SHA256SUMS](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/SHA256SUMS) · [Release notes](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/tag/module-v0.1.20)
+>
+> Build and regression checks passed; Android device compatibility still requires the documented acceptance checks.
 
 ## Project links
 

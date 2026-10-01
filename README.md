@@ -8,7 +8,11 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
-> 构建中：**0.1.20**。发布前请以 [CI 修复分支](https://github.com/snowzlmbot/AdGuardHome-Android-Module/tree/fix/ksu-clone-dns-filtering) 的已验证 artifact 为准；不要刷 Source ZIP。
+> 已发布：**0.1.20**。
+>
+> [下载可安装模块 ZIP](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/AdGuardHome-Android-Module-0.1.20-agh-0.107.79.zip) · [SHA256SUMS](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/SHA256SUMS) · [发布说明](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/tag/module-v0.1.20)
+>
+> 请勿刷入 GitHub Source ZIP。构建与回归测试已通过；设备兼容性仍需按文档验收。
 
 ## 项目入口
 
