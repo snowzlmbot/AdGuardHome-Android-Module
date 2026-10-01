@@ -306,7 +306,14 @@ file_restore_record() (
             for file_child in "$file_path"/* "$file_path"/.[!.]* "$file_path"/..?*; do
                 [ ! -e "$file_child" ] && [ ! -L "$file_child" ] || return 1
             done
-            cp -pnR "$file_saved_backup"/. "$file_path"/ || return 1
+            # BusyBox cp -nR source/. existing-dir can skip the whole directory.
+            # Copy only individually absent children, retaining no-clobber.
+            for file_child in "$file_saved_backup"/* "$file_saved_backup"/.[!.]* "$file_saved_backup"/..?*; do
+                [ -e "$file_child" ] || continue
+                file_destination="$file_path/${file_child##*/}"
+                [ ! -e "$file_destination" ] && [ ! -L "$file_destination" ] || return 1
+                cp -pnR "$file_child" "$file_destination" || return 1
+            done
         else
             # Preserve the app's existing inode and SELinux label; no predictable
             # temporary file is created in an app-writable directory.
