@@ -8,7 +8,7 @@
 
 A modular AdGuard Home integration for rooted Android devices using Magisk or KernelSU.
 
-> Current version: **0.1.8**
+> Current version: **0.1.20**
 
 ## Project links
 

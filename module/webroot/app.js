@@ -18,8 +18,10 @@ const messages = {
     'policy.ipv6': 'IPv6 DNS 防泄漏', 'policy.ipv6Help': '阻断直连 IPv6 DNS', 'policy.encrypted': '853 加密 DNS 防泄漏', 'policy.encryptedHelp': 'DoT / DoQ 端口策略', 'policy.vpn': 'VPN 兼容旁路', 'policy.vpnHelp': 'VPN 运行时优先保证连接',
     'footer.refresh': '状态每 5 秒自动刷新', 'credential.title': '管理登录信息', 'credential.username': '用户名',
     'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。', 'logs.eyebrow': '脱敏诊断', 'logs.title': '最近模块日志', 'toast.logs': '日志读取失败',
-    'toggle.on': '开启', 'toggle.off': '关闭',
-    'fileRules.waiting': '等待规则状态', 'fileRules.help': '只处理已存在的应用目录，不会为未安装应用创建占位文件夹。', 'fileRules.urlLabel': '规则文件链接', 'fileRules.urlPlaceholder': 'https://raw.githubusercontent.com/.../file-ad-targets.conf', 'fileRules.shaLabel': 'SHA-256 校验链接（可选）', 'fileRules.shaPlaceholder': '自动使用规则链接.sha256', 'fileRules.view': '在 GitHub 查看解析', 'fileRules.save': '保存链接', 'fileRules.packageLabel': '包名过滤（可选）', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ 更新规则并清理', 'fileRules.apply': '扫描并覆盖已安装应用', 'fileRules.meta': '规则 {state} · 已安装 {installed} · 已清理 {applied} · 待处理 {changed} · 缺失 {missing}',
+    'toggle.on': '已开启 · 点击关闭', 'toggle.off': '已关闭 · 点击开启',
+    'status.bypassed': 'VPN 旁路', 'status.degraded': '降级',
+    'toast.fileRulesDownloaded': '云端规则已下载并校验；清理请使用扫描按钮',
+    'fileRules.waiting': '等待规则状态', 'fileRules.help': '只处理已存在的应用目录，不会为未安装应用创建占位文件夹。', 'fileRules.urlLabel': '规则文件链接', 'fileRules.urlPlaceholder': 'https://raw.githubusercontent.com/.../file-ad-targets.conf', 'fileRules.shaLabel': 'SHA-256 校验链接（可选）', 'fileRules.shaPlaceholder': '自动使用规则链接.sha256', 'fileRules.view': '在 GitHub 查看解析', 'fileRules.save': '保存链接', 'fileRules.packageLabel': '包名过滤（可选）', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ 更新云端规则', 'fileRules.apply': '扫描并覆盖已安装应用', 'fileRules.meta': '规则 {state} · 已安装 {installed} · 已清理 {applied} · 待处理 {changed} · 缺失 {missing}',
     'overall.running': '运行中', 'overall.paused': '已暂停', 'overall.stopped': '已停止', 'overall.degraded': '部分功能异常', 'overall.failed': '启动失败',
     'summary.running': 'DNS 核心与过滤规则已生效', 'summary.filtersLoading': 'DNS 核心已运行，过滤规则仍在加载', 'summary.paused': '核心保留运行，DNS 重定向已撤销',
     'summary.stopped': '模块已停止；点击启动恢复', 'summary.degraded': '核心已运行，但部分组件未生效',
@@ -52,8 +54,10 @@ const messages = {
     'policy.ipv6': 'IPv6 DNS leak protection', 'policy.ipv6Help': 'Block direct IPv6 DNS', 'policy.encrypted': 'Encrypted DNS leak protection', 'policy.encryptedHelp': 'DoT / DoQ port policy', 'policy.vpn': 'VPN compatibility bypass', 'policy.vpnHelp': 'Prioritize VPN connectivity',
     'footer.refresh': 'Status refreshes every 5 seconds', 'credential.title': 'Dashboard credentials', 'credential.username': 'Username',
     'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.', 'logs.eyebrow': 'REDACTED DIAGNOSTICS', 'logs.title': 'Recent module logs', 'toast.logs': 'Failed to read logs',
-    'toggle.on': 'ON', 'toggle.off': 'OFF',
-    'fileRules.waiting': 'Waiting for rule status', 'fileRules.help': 'Only existing app paths are processed; no placeholder folders are created for uninstalled apps.', 'fileRules.urlLabel': 'Rule file URL', 'fileRules.urlPlaceholder': 'https://raw.githubusercontent.com/.../file-ad-targets.conf', 'fileRules.shaLabel': 'SHA-256 URL (optional)', 'fileRules.shaPlaceholder': 'Defaults to rule URL.sha256', 'fileRules.view': 'View parsed file on GitHub', 'fileRules.save': 'Save links', 'fileRules.packageLabel': 'Package filter (optional)', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ Update rules & clean', 'fileRules.apply': 'Scan installed apps', 'fileRules.meta': 'Rules {state} · installed {installed} · cleaned {applied} · changed {changed} · missing {missing}',
+    'toggle.on': 'ON · Disable', 'toggle.off': 'OFF · Enable',
+    'status.bypassed': 'VPN bypass', 'status.degraded': 'Degraded',
+    'toast.fileRulesDownloaded': 'Rules downloaded and verified; cleanup is a separate action',
+    'fileRules.waiting': 'Waiting for rule status', 'fileRules.help': 'Only existing app paths are processed; no placeholder folders are created for uninstalled apps.', 'fileRules.urlLabel': 'Rule file URL', 'fileRules.urlPlaceholder': 'https://raw.githubusercontent.com/.../file-ad-targets.conf', 'fileRules.shaLabel': 'SHA-256 URL (optional)', 'fileRules.shaPlaceholder': 'Defaults to rule URL.sha256', 'fileRules.view': 'View parsed file on GitHub', 'fileRules.save': 'Save links', 'fileRules.packageLabel': 'Package filter (optional)', 'fileRules.packagePlaceholder': 'com.example.app', 'fileRules.refresh': '↻ Download rules', 'fileRules.apply': 'Scan installed apps', 'fileRules.meta': 'Rules {state} · installed {installed} · cleaned {applied} · changed {changed} · missing {missing}',
     'overall.running': 'Running', 'overall.paused': 'Paused', 'overall.stopped': 'Stopped', 'overall.degraded': 'Partially degraded', 'overall.failed': 'Startup failed',
     'summary.running': 'DNS core and filtering rules are active', 'summary.filtersLoading': 'DNS core is running; filter lists are still loading', 'summary.paused': 'Core is running; DNS redirects are removed',
     'summary.stopped': 'The module is stopped; press Start to recover', 'summary.degraded': 'Core is running, but a component is inactive',
@@ -114,7 +118,7 @@ function parseKeyValues(raw) {
 function localizedStatus(value) { return text(`status.${value || 'unknown'}`); }
 function localizedReason(reason) { return text(`reason.${reason || 'unknown'}`); }
 function localizedNetwork(state) {
-  const base = text(`network.${state.network || 'other'}`);
+  const base = text(`network.${state.network_type || 'other'}`);
   return state.vpn === 'true' ? `${base} + ${text('network.vpn')}` : base;
 }
 
@@ -138,7 +142,7 @@ function applyFileRulesStatus(state) {
   if (state.file_rules_url && document.activeElement !== $('fileRulesUrl')) $('fileRulesUrl').value = state.file_rules_url;
   if (state.file_rules_sha256_url && document.activeElement !== $('fileRulesShaUrl')) $('fileRulesShaUrl').value = state.file_rules_sha256_url;
   if (state.file_rules_view_url) { $('fileRulesView').href = state.file_rules_view_url; $('fileRulesView').hidden = false; } else { $('fileRulesView').hidden = true; }
-  $('fileRulesMeta').textContent = `${text('fileRules.meta').replace('{state}', ruleState).replace('{installed}', state.file_targets_installed || '0').replace('{applied}', state.file_targets_applied || '0').replace('{changed}', state.file_targets_changed || '0').replace('{missing}', state.file_targets_missing || '0')}${packageName}`;
+  $('fileRulesMeta').textContent = `${text('fileRules.meta').replace('{state}', ruleState).replace('{installed}', state.file_targets_installed || '0').replace('{applied}', state.file_targets_applied || '0').replace('{changed}', state.file_targets_changed || '0').replace('{missing}', state.file_targets_missing || '0')}${packageName}${state.file_rules_reason ? ` · ${state.file_rules_reason}` : ''}`;
 }
 
 function applyStatus(state) {
@@ -176,7 +180,9 @@ function applyStatus(state) {
   applyFileRulesStatus(state);
   document.querySelectorAll('.policy-toggle').forEach((button) => {
     const key = button.dataset.policy;
-    const enabled = key === 'block_853' ? state.dot_block === 'true' && state.doq_block === 'true' : state[ key === 'redirect_ipv6_dns' ? 'ipv6_dns_block' : key ] === 'true';
+    const enabled = key === 'block_853' ? state.dot_block === 'true' && state.doq_block === 'true'
+      : key === 'bypass_vpn_traffic' ? (state.bypass_vpn_traffic ?? state.vpn_passthrough) === 'true'
+      : state.ipv6_dns_block === 'true';
     updateToggle(button, enabled);
   });
 }
@@ -185,6 +191,7 @@ function updateToggle(button, enabled) {
   button.classList.toggle('active', enabled);
   button.textContent = text(enabled ? 'toggle.on' : 'toggle.off');
   button.dataset.enabled = String(enabled);
+  button.setAttribute('aria-pressed', String(enabled));
 }
 
 async function refresh(silent = true) {
@@ -224,9 +231,13 @@ async function setPolicy(policy, enabled) {
       const result = await exec(`sh ${CONTROL} set-policy ${key} ${enabled ? 'true' : 'false'}`);
       if (result.errno !== 0) throw new Error(result.stderr || policy);
     }
-    showToast(text('toast.done'));
-    await new Promise((resolve) => setTimeout(resolve, 800));
     await refresh();
+    const actual = policy === 'bypass_vpn_traffic' ? (current.bypass_vpn_traffic ?? current.vpn_passthrough)
+      : policy === 'redirect_ipv6_dns' ? current.ipv6_dns_block
+      : String(current.dot_block === 'true' && current.doq_block === 'true');
+    if (actual !== String(enabled)) throw new Error('policy_readback');
+    if (policy === 'bypass_vpn_traffic' && !enabled && current.firewall === 'bypassed') throw new Error('vpn_still_bypassed');
+    showToast(text('toast.done'));
   } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }
   finally { setBusy(false); }
 }
@@ -272,10 +283,10 @@ async function runFileRules(action) {
     const argument = packageName ? ` ${shellQuote(packageName)}` : '';
     const result = await exec(`sh ${CONTROL} ${action}${argument}`);
     if (result.errno !== 0) throw new Error(result.stderr || action);
-    showToast(text('toast.fileRules'));
+    showToast(text(action === 'file-rules-refresh' ? 'toast.fileRulesDownloaded' : 'toast.fileRules'));
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await refresh();
-  } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }
+  } catch (error) { await refresh(); showToast(`${text('toast.failed')}: ${error.message}`); }
   finally { setBusy(false); }
 }
 

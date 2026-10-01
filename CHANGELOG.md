@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.1.20
+
+- Accept scoped IPv6 DNS addresses reported by Android without disabling a usable network.
+- Re-execute file-backed workers in the manager's static BusyBox shell and remove unverified toybox dependencies; inherited environment markers cannot suppress setup.
+- Quarantine incompatible module-owned downloaded manifests and recover the validated bundled baseline offline; explicit custom paths remain fail-closed.
+- Add explicit DNS fallback for the static HTTPS downloader when Android exposes no working system resolver; certificate verification is unchanged.
+- Keep persistent runtime directories private with 0700 permissions.
+
+## 0.1.19
+
+- Fix the VPN switch state-key mismatch and clear every VPN DNS exemption when disabled.
+- Pin compatible cloud rules and migrate the old default URL without replacing custom sources.
+- Separate cloud download from file cleanup and expose phase-specific errors.
+- Replace optional flock with a portable PID/start-time cycle lock.
+- Ship a static certificate-verifying HTTPS fetch helper to avoid BusyBox TLS build differences; reject plaintext, invalid certificates, insecure redirects and oversized payloads.
+
+## 0.1.18
+
+- Remove and verify module-owned DNS redirection before restarting, disabling, recovering, or changing the core mode; do not stop the listener when rule removal fails.
+- Execute stop cleanup synchronously rather than leaving unconsumed component requests; a one-shot status cycle cannot revive a stopped service.
+- Add a read-only core readiness check and lifecycle-order regressions for normal and injected-failure paths.
+
+## 0.1.17
+
+- Strengthened the KernelSU archive contract: validation rejects Source ZIPs, wrapper directories, missing runtime entries, and damaged payloads before delivery.
+- Recovered stale supervisor locks and foreign PID files after reboot instead of silently skipping startup.
+- Made workers use the KernelSU-provided BusyBox shell environment, logged startup failures, and made the Android CA path explicit for encrypted upstreams.
+- Kept cloned-user DNS on the module-owned path, stopped globally exempting application DNS to upstreams, and disabled strict port-853 blocking by default because it can make Private DNS clients lose all connectivity.
+- Added an offline, checksummed anti-AD seed with filtering enabled by default; explicit user filter removals and custom lists remain untouched.
+- Extended file cleanup safety for Android user/profile paths and dedicated cache regeneration; no guessed Coolapk/WeChat paths or protected databases/app roots are cleared.
+
 ## 0.1.16
 
 - Added WebUI URL fields for cloud rule resources, SHA-256 links, and GitHub parsed-file links; GitHub blob URLs are normalized to raw URLs.

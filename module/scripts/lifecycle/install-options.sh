@@ -76,7 +76,7 @@ configure_install_options() {
         install_existing_853=$(sed -n 's/^block_ipv4_dot=//p' "$AGH_CONFIG_DIR/mode.conf" | sed -n '1p')
         [ -n "$install_existing_mode" ] || return 1
         [ -n "$install_existing_ipv6" ] || install_existing_ipv6=true
-        [ -n "$install_existing_853" ] || install_existing_853=true
+        [ -n "$install_existing_853" ] || install_existing_853=false
         install_set_value "$AGH_CONFIG_DIR/proxy-adapter.conf" enabled "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" 2>/dev/null || true
         printf 'mode=%s\nipv6=%s\nblock_853=%s\nproxy=%s\nfile_adapter=%s\nselection_version=2\n' "$install_existing_mode" "$install_existing_ipv6" "$install_existing_853" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null | sed -n '1p')" "$(sed -n 's/^enabled=//p' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null | sed -n '1p')" > "$install_marker"
         chmod 0600 "$install_marker"
@@ -95,7 +95,7 @@ configure_install_options() {
 
     if [ -n "${INSTALL_BLOCK_853:-}" ]; then
         install_853=$INSTALL_BLOCK_853
-    elif install_choice "拦截 TCP/UDP 853（DoT/DoQ）" "Block TCP/UDP 853 (DoT/DoQ)" true; then
+    elif install_choice "拦截 TCP/UDP 853（严格私人 DNS 将断网，默认关闭）" "Block TCP/UDP 853 (breaks strict Private DNS; off by default)" false; then
         install_853=true
     else
         install_853=false

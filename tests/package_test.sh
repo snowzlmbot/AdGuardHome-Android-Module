@@ -9,11 +9,12 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 mkdir -p "$fixture/out"
 (
     cd "$fixture"
-    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" 0.1.16 0.107.79 out > "$fixture/result"
+    ASSET_CACHE_DIR="$fixture/cache" "$ROOT/build/package.sh" "$(sed -n 's/^version=//p' "$ROOT/module/module.prop")" 0.107.79 out > "$fixture/result"
 )
 package=$(sed -n '1p' "$fixture/result")
 [ -f "$package" ] || fail 'package was not created'
 unzip -Z1 "$package" > "$fixture/list"
+python3 "$ROOT/tests/validate_module_zip.py" "$package" || fail 'KSU archive contract failed'
 grep -Fx 'bin/arm64/AdGuardHome' "$fixture/list" >/dev/null || fail 'arm64 binary missing'
 grep -Fx 'bin/armv7/AdGuardHome' "$fixture/list" >/dev/null || fail 'armv7 binary missing'
 grep -Fx 'SHA256SUMS' "$fixture/list" >/dev/null || fail 'SHA256SUMS missing'
@@ -22,6 +23,7 @@ grep -Fx 'action.sh' "$fixture/list" >/dev/null || fail 'action.sh missing from 
 grep -Fx 'boot-completed.sh' "$fixture/list" >/dev/null || fail 'boot-completed.sh missing from module root'
 grep -Fx 'uninstall.sh' "$fixture/list" >/dev/null || fail 'uninstall.sh missing from module root'
 grep -Fx 'webroot/index.html' "$fixture/list" >/dev/null || fail 'KernelSU WebUI missing'
+grep -Fx 'rules/anti-ad-easylist.txt' "$fixture/list" >/dev/null || fail 'offline DNS rules missing'
 grep -F 'upstreams/' "$fixture/list" >/dev/null && fail 'audit checkout leaked into package' || true
 unzip -p "$package" bin/arm64/AdGuardHome | sha256sum | grep -F '64a9b6fc6269247f1973cddbf285aa6ce866d11bd29546b0f4135ba31d2283c8' >/dev/null || fail 'arm64 binary digest mismatch'
 unzip -p "$package" bin/armv7/AdGuardHome | sha256sum | grep -F 'df4df847871d0851489c9c2933b7d81202972f84bc55c86c09d6daa914334691' >/dev/null || fail 'armv7 binary digest mismatch'
@@ -52,7 +54,7 @@ export INSTALL_ENABLE_FILE=false
 . '$ROOT/module/customize.sh'
 EOF
 sh "$fixture/run-installer.sh" || fail 'customize.sh installation simulation failed'
-for installed_file in service.sh action.sh boot-completed.sh uninstall.sh webroot/index.html scripts/lifecycle/supervisor.sh; do
+for installed_file in service.sh action.sh boot-completed.sh uninstall.sh webroot/index.html scripts/lifecycle/supervisor.sh rules/anti-ad-easylist.txt licenses/anti-AD-MIT.txt sbom/SPDX.json; do
     [ -f "$install_root/$installed_file" ] || fail "installed module missing $installed_file"
 done
 for runtime_file in config/AdGuardHome.yaml config/mode.conf config/proxy-adapter.conf config/file-adapter.conf state/credentials.conf state/ports.conf state/language.conf; do

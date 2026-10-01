@@ -12,6 +12,7 @@ export MODDIR
 
 FW_V4_NAT=AGHADM4N
 FW_V4_FILTER=AGHADF4
+FW_V6_NAT=AGHADM6N
 FW_V6_FILTER=AGHADF6
 
 firewall_state_value() {
@@ -31,8 +32,13 @@ firewall_state_write() {
         printf 'network=%s\n' "${FW_NETWORK_TYPE:-unknown}"
         printf 'vpn=%s\n' "${FW_NETWORK_VPN:-unknown}"
         printf 'v4_redirect=%s\n' "${FW_V4_REDIRECT:-false}"
-        printf 'v6_dns_block=%s\n' "${FW_V6_DNS_BLOCK:-false}"
+        printf 'v6_redirect=%s\n' "${FW_V6_REDIRECT:-false}"
+        # Legacy status field: IPv6 DNS is never replaced by DROP.
+        printf 'v6_dns_block=false\n'
         printf 'dot_block=%s\n' "${FW_DOT_BLOCK:-false}"
+        printf 'v6_dot_block=%s\n' "${FW_V6_DOT_BLOCK:-false}"
+        printf 'doq_block=%s\n' "${FW_DOQ_BLOCK:-false}"
+        printf 'v6_doq_block=%s\n' "${FW_V6_DOQ_BLOCK:-false}"
     } > "$firewall_tmp" || return 1
     chmod 0600 "$firewall_tmp"
     agh_sync
@@ -57,32 +63,69 @@ firewall_chain_exists() {
 }
 
 firewall_remove_jump_all() {
-    firewall_binary=$1
-    firewall_table=$2
-    firewall_chain=$3
-    firewall_count=0
-    while firewall_exec "$firewall_binary" -t "$firewall_table" -C OUTPUT -j "$firewall_chain" >/dev/null 2>&1; do
-        firewall_exec "$firewall_binary" -t "$firewall_table" -D OUTPUT -j "$firewall_chain" >/dev/null 2>&1 || break
-        firewall_count=$((firewall_count + 1))
-        [ "$firewall_count" -lt 32 ] || break
+    firewall_delete_binary=$1
+    firewall_delete_table=$2
+    firewall_delete_chain=$3
+    firewall_delete_count=0
+    while firewall_exec "$firewall_delete_binary" -t "$firewall_delete_table" -C OUTPUT -j "$firewall_delete_chain" >/dev/null 2>&1; do
+        firewall_exec "$firewall_delete_binary" -t "$firewall_delete_table" -D OUTPUT -j "$firewall_delete_chain" >/dev/null 2>&1 || return 1
+        firewall_delete_count=$((firewall_delete_count + 1))
+        # Bound a broken/no-op iptables wrapper rather than claim removal.
+        if [ "$firewall_delete_count" -ge 32 ]; then
+            if firewall_exec "$firewall_delete_binary" -t "$firewall_delete_table" -C OUTPUT -j "$firewall_delete_chain" >/dev/null 2>&1; then return 1; fi
+            return 0
+        fi
     done
+    return 0
 }
 
 firewall_remove_chain() {
-    firewall_binary=$1
-    firewall_table=$2
-    firewall_chain=$3
-    firewall_remove_jump_all "$firewall_binary" "$firewall_table" "$firewall_chain"
-    firewall_exec "$firewall_binary" -t "$firewall_table" -F "$firewall_chain" >/dev/null 2>&1 || true
-    firewall_exec "$firewall_binary" -t "$firewall_table" -X "$firewall_chain" >/dev/null 2>&1 || true
+    firewall_cleanup_binary=$1
+    firewall_cleanup_table=$2
+    firewall_cleanup_chain=$3
+    firewall_cleanup_failed=0
+    firewall_remove_jump_all "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain" || firewall_cleanup_failed=1
+    if firewall_chain_exists "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain"; then
+        firewall_exec "$firewall_cleanup_binary" -t "$firewall_cleanup_table" -F "$firewall_cleanup_chain" >/dev/null 2>&1 || firewall_cleanup_failed=1
+        firewall_exec "$firewall_cleanup_binary" -t "$firewall_cleanup_table" -X "$firewall_cleanup_chain" >/dev/null 2>&1 || firewall_cleanup_failed=1
+        if firewall_chain_exists "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain"; then firewall_cleanup_failed=1; fi
+    fi
+    [ "$firewall_cleanup_failed" = 0 ]
+}
+
+firewall_remove_v4() {
+    command -v "$firewall_binary_v4" >/dev/null 2>&1 || return 1
+    firewall_cleanup_v4_failed=0
+    firewall_remove_chain "$firewall_binary_v4" nat "$FW_V4_NAT" || firewall_cleanup_v4_failed=1
+    firewall_remove_chain "$firewall_binary_v4" filter "$FW_V4_FILTER" || firewall_cleanup_v4_failed=1
+    [ "$firewall_cleanup_v4_failed" = 0 ]
+}
+
+firewall_remove_v6() {
+    # IPv6 tooling is optional and may not exist on the device at all.
+    command -v "$firewall_binary_v6" >/dev/null 2>&1 || return 0
+    firewall_cleanup_v6_failed=0
+    firewall_remove_chain "$firewall_binary_v6" nat "$FW_V6_NAT" || firewall_cleanup_v6_failed=1
+    firewall_remove_chain "$firewall_binary_v6" filter "$FW_V6_FILTER" || firewall_cleanup_v6_failed=1
+    [ "$firewall_cleanup_v6_failed" = 0 ]
 }
 
 firewall_remove() {
     firewall_binary_v4=${IPTABLES_BIN:-iptables}
     firewall_binary_v6=${IP6TABLES_BIN:-ip6tables}
-    firewall_remove_chain "$firewall_binary_v4" nat "$FW_V4_NAT"
-    firewall_remove_chain "$firewall_binary_v4" filter "$FW_V4_FILTER"
-    firewall_remove_chain "$firewall_binary_v6" filter "$FW_V6_FILTER"
+    FW_V4_REDIRECT=false
+    FW_V6_REDIRECT=false
+    FW_DOT_BLOCK=false
+    FW_V6_DOT_BLOCK=false
+    FW_DOQ_BLOCK=false
+    FW_V6_DOQ_BLOCK=false
+    firewall_cleanup_all_failed=0
+    firewall_remove_v4 || firewall_cleanup_all_failed=1
+    firewall_remove_v6 || firewall_cleanup_all_failed=1
+    if [ "$firewall_cleanup_all_failed" != 0 ]; then
+        firewall_state_write degraded remove_failed
+        return 1
+    fi
     firewall_state_write removed removed
 }
 
@@ -91,45 +134,50 @@ firewall_config_value() {
     sed -n "s/^${firewall_config_key}=//p" "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p'
 }
 
+firewall_option() {
+    firewall_option_value=$(firewall_config_value "$1")
+    [ -n "$firewall_option_value" ] || firewall_option_value=$2
+    case "$firewall_option_value" in true) printf true ;; *) printf false ;; esac
+}
+
 firewall_ensure_chain() {
-    firewall_binary=$1
-    firewall_table=$2
-    firewall_chain=$3
-    firewall_exec "$firewall_binary" -t "$firewall_table" -N "$firewall_chain" >/dev/null 2>&1 || true
-    firewall_exec "$firewall_binary" -t "$firewall_table" -F "$firewall_chain" >/dev/null 2>&1 || return 1
+    # -N failing is normal only for an existing chain. Never ignore capability
+    # failures or flush/rewrite a built-in or another module's chain.
+    firewall_create_binary=$1
+    firewall_create_table=$2
+    firewall_create_chain=$3
+    firewall_exec "$firewall_create_binary" -t "$firewall_create_table" -N "$firewall_create_chain" >/dev/null 2>&1 ||
+        firewall_chain_exists "$firewall_create_binary" "$firewall_create_table" "$firewall_create_chain" || return 1
+    firewall_exec "$firewall_create_binary" -t "$firewall_create_table" -F "$firewall_create_chain" >/dev/null 2>&1 || return 1
+    firewall_chain_exists "$firewall_create_binary" "$firewall_create_table" "$firewall_create_chain"
+}
+
+firewall_rule() {
+    firewall_rule_binary=$1
+    firewall_rule_table=$2
+    firewall_rule_chain=$3
+    shift 3
+    firewall_exec "$firewall_rule_binary" -t "$firewall_rule_table" -A "$firewall_rule_chain" "$@" >/dev/null 2>&1 || return 1
+    firewall_exec "$firewall_rule_binary" -t "$firewall_rule_table" -C "$firewall_rule_chain" "$@" >/dev/null 2>&1
 }
 
 firewall_insert_jump() {
-    firewall_binary=$1
-    firewall_table=$2
-    firewall_chain=$3
-    if ! firewall_exec "$firewall_binary" -t "$firewall_table" -C OUTPUT -j "$firewall_chain" >/dev/null 2>&1; then
-        firewall_exec "$firewall_binary" -t "$firewall_table" -I OUTPUT 1 -j "$firewall_chain" >/dev/null 2>&1 || return 1
-    fi
-}
-
-firewall_mode_exception() {
-    firewall_mode_targets=$1
-    [ -n "$firewall_mode_targets" ] || return 0
-    for firewall_mode_target in $(printf '%s' "$firewall_mode_targets" | tr ',' ' '); do
-        firewall_mode_host=$(printf '%s' "$firewall_mode_target" | sed 's/:.*//')
-        firewall_mode_port=$(printf '%s' "$firewall_mode_target" | sed 's/^[^:]*://')
-        case "$firewall_mode_host" in
-            *[!0-9.]*|'' ) return 1 ;;
-        esac
-        [ "$firewall_mode_port" -ge 1 ] 2>/dev/null || return 1
-        [ "$firewall_mode_port" -le 65535 ] 2>/dev/null || return 1
-        firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p udp --dport 53 -j RETURN || return 1
-        firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -d "$firewall_mode_host" -p tcp --dport 53 -j RETURN || return 1
-    done
+    firewall_hook_binary=$1
+    firewall_hook_table=$2
+    firewall_hook_chain=$3
+    # Reinsert at head: netd may have prepended an owner reject since the last
+    # ensure. Remove duplicates of OUR exact jump; leave foreign rules intact.
+    firewall_remove_jump_all "$firewall_hook_binary" "$firewall_hook_table" "$firewall_hook_chain" || return 1
+    firewall_exec "$firewall_hook_binary" -t "$firewall_hook_table" -I OUTPUT 1 -j "$firewall_hook_chain" >/dev/null 2>&1 || return 1
+    firewall_exec "$firewall_hook_binary" -t "$firewall_hook_table" -C OUTPUT -j "$firewall_hook_chain" >/dev/null 2>&1
 }
 
 firewall_add_vpn_bypass() {
-    firewall_binary=$1
-    firewall_table=$2
-    firewall_chain=$3
+    firewall_vpn_binary=$1
+    firewall_vpn_table=$2
+    firewall_vpn_chain=$3
     for firewall_iface in tun+ tap+ wg+ ppp+ tailscale+; do
-        firewall_exec "$firewall_binary" -t "$firewall_table" -A "$firewall_chain" -o "$firewall_iface" -j RETURN || return 1
+        firewall_rule "$firewall_vpn_binary" "$firewall_vpn_table" "$firewall_vpn_chain" -o "$firewall_iface" -j RETURN || return 1
     done
 }
 
@@ -138,19 +186,98 @@ firewall_read_core() {
     [ "$(firewall_state_value "$AGH_STATE_DIR/core.state" state)" = ready ] || return 1
     [ "$(firewall_state_value "$AGH_STATE_DIR/core.state" firewall_authorized)" = 1 ] || return 1
     FW_DNS_PORT=$(firewall_state_value "$AGH_STATE_DIR/core.state" dns_port)
+    # A dual-loopback configuration alone is not proof that ::1 is listening.
+    FW_CORE_IPV6_READY=$(firewall_state_value "$AGH_STATE_DIR/core.state" dns_ipv6_ready)
     valid_port "$FW_DNS_PORT" || return 1
 }
 
+firewall_fail() {
+    firewall_failure_reason=$1
+    firewall_remove || firewall_failure_reason="${firewall_failure_reason}:rollback_failed"
+    firewall_state_write degraded "$firewall_failure_reason"
+    return 1
+}
+
+firewall_apply_family() {
+    firewall_apply_binary=$1
+    firewall_apply_family=$2
+    firewall_apply_nat=$3
+    firewall_apply_filter=$4
+    firewall_apply_loopback=$5
+    firewall_apply_dns=$6
+    firewall_apply_dot=$7
+    firewall_apply_doq=$8
+    [ "$firewall_apply_dns" = true ] || [ "$firewall_apply_dot" = true ] || [ "$firewall_apply_doq" = true ] || return 0
+    FW_APPLY_REASON=${firewall_apply_family}_filter_chain
+    firewall_ensure_chain "$firewall_apply_binary" filter "$firewall_apply_filter" || return 1
+    if [ "$firewall_apply_dns" = true ]; then
+        FW_APPLY_REASON=${firewall_apply_family}_nat_chain
+        firewall_ensure_chain "$firewall_apply_binary" nat "$firewall_apply_nat" || return 1
+        # KSU runs AGH as UID 0. An owner exception covers upstream, bootstrap
+        # AND plain fallback in every mode, without whitelisting app destinations.
+        FW_APPLY_REASON=${firewall_apply_family}_owner
+        firewall_rule "$firewall_apply_binary" nat "$firewall_apply_nat" -m owner --uid-owner 0 -j RETURN || return 1
+        if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_DNS" = true ]; then
+            FW_APPLY_REASON=${firewall_apply_family}_vpn_dns
+            firewall_add_vpn_bypass "$firewall_apply_binary" nat "$firewall_apply_nat" || return 1
+        fi
+        # OUTPUT NAT runs before netd's OUTPUT owner-isolation filter. Permit
+        # only real DNS DNAT into our loopback listener, not arbitrary loopback
+        # access/WebUI, whole user ranges, or connections originally to port 80.
+        for firewall_proto in udp tcp; do
+            FW_APPLY_REASON=${firewall_apply_family}_dns_allow
+            firewall_rule "$firewall_apply_binary" filter "$firewall_apply_filter" -o lo -d "$firewall_apply_loopback" -p "$firewall_proto" --dport "$FW_DNS_PORT" -m conntrack --ctstate DNAT --ctdir ORIGINAL --ctorigdstport 53 -j ACCEPT || return 1
+            FW_APPLY_REASON=${firewall_apply_family}_dns_redirect
+            if [ "$firewall_apply_family" = v4 ]; then
+                firewall_rule "$firewall_apply_binary" nat "$firewall_apply_nat" -p "$firewall_proto" --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || return 1
+            else
+                firewall_rule "$firewall_apply_binary" nat "$firewall_apply_nat" -p "$firewall_proto" --dport 53 -j DNAT --to-destination "[::1]:$FW_DNS_PORT" || return 1
+            fi
+        done
+    fi
+    # Root's own encrypted upstream must not be dropped either. RETURN keeps
+    # all subsequent Android/system firewall checks (unlike a blanket ACCEPT).
+    FW_APPLY_REASON=${firewall_apply_family}_filter_owner
+    firewall_rule "$firewall_apply_binary" filter "$firewall_apply_filter" -m owner --uid-owner 0 -j RETURN || return 1
+    if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_ENCRYPTED" = true ]; then
+        FW_APPLY_REASON=${firewall_apply_family}_vpn_encrypted
+        firewall_add_vpn_bypass "$firewall_apply_binary" filter "$firewall_apply_filter" || return 1
+    fi
+    FW_APPLY_REASON=${firewall_apply_family}_encrypted_rules
+    if [ "$firewall_apply_dot" = true ]; then
+        firewall_rule "$firewall_apply_binary" filter "$firewall_apply_filter" -p tcp --dport 853 -j DROP || return 1
+    fi
+    if [ "$firewall_apply_doq" = true ]; then
+        for firewall_doq_port in 853 784; do
+            firewall_rule "$firewall_apply_binary" filter "$firewall_apply_filter" -p udp --dport "$firewall_doq_port" -j DROP || return 1
+        done
+    fi
+    # Publish filter first, NAT last: never expose redirected clone DNS to the
+    # rejecting netd chain while its narrowly scoped exemption is absent.
+    FW_APPLY_REASON=${firewall_apply_family}_filter_jump
+    firewall_insert_jump "$firewall_apply_binary" filter "$firewall_apply_filter" || return 1
+    if [ "$firewall_apply_dns" = true ]; then
+        FW_APPLY_REASON=${firewall_apply_family}_nat_jump
+        firewall_insert_jump "$firewall_apply_binary" nat "$firewall_apply_nat" || return 1
+    fi
+}
+
 firewall_ensure() {
-    firewall_read_core || { firewall_remove; firewall_state_write degraded core_not_ready; return 0; }
+    firewall_read_core || { firewall_remove || return 1; firewall_state_write degraded core_not_ready; return 0; }
     firewall_binary_v4=${IPTABLES_BIN:-iptables}
     firewall_binary_v6=${IP6TABLES_BIN:-ip6tables}
-    FW_V4_REDIRECT=$(firewall_config_value redirect_ipv4_dns); [ -n "$FW_V4_REDIRECT" ] || FW_V4_REDIRECT=true
-    FW_V6_DNS_BLOCK=$(firewall_config_value redirect_ipv6_dns); [ -n "$FW_V6_DNS_BLOCK" ] || FW_V6_DNS_BLOCK=true
-    FW_DOT_BLOCK=$(firewall_config_value block_ipv4_dot); [ -n "$FW_DOT_BLOCK" ] || FW_DOT_BLOCK=true
-    FW_V6_DOT_BLOCK=$(firewall_config_value block_ipv6_dot); [ -n "$FW_V6_DOT_BLOCK" ] || FW_V6_DOT_BLOCK=true
-    FW_V4_DOQ_BLOCK=$(firewall_config_value block_ipv4_doq); [ -n "$FW_V4_DOQ_BLOCK" ] || FW_V4_DOQ_BLOCK=true
-    FW_V6_DOQ_BLOCK=$(firewall_config_value block_ipv6_doq); [ -n "$FW_V6_DOQ_BLOCK" ] || FW_V6_DOQ_BLOCK=true
+    FW_V4_REDIRECT=false; FW_V6_REDIRECT=false
+    FW_DOT_BLOCK=false; FW_V6_DOT_BLOCK=false
+    FW_DOQ_BLOCK=false; FW_V6_DOQ_BLOCK=false
+    FW_V6_REASON=
+    FW_WANT_V4_DNS=$(firewall_option redirect_ipv4_dns true)
+    FW_WANT_V6_DNS=$(firewall_option redirect_ipv6_dns true)
+    # Missing keys take safe fresh defaults; explicit persisted choices are
+    # read, never overwritten (old default=true is indistinguishable from opt-in).
+    FW_WANT_V4_DOT=$(firewall_option block_ipv4_dot false)
+    FW_WANT_V6_DOT=$(firewall_option block_ipv6_dot false)
+    FW_WANT_V4_DOQ=$(firewall_option block_ipv4_doq false)
+    FW_WANT_V6_DOQ=$(firewall_option block_ipv6_doq false)
     FW_NETWORK_STATE=$(firewall_state_value "$AGH_STATE_DIR/network.state" state); [ -n "$FW_NETWORK_STATE" ] || FW_NETWORK_STATE=unknown
     FW_NETWORK_MODE=$(firewall_state_value "$AGH_STATE_DIR/network.state" mode); [ -n "$FW_NETWORK_MODE" ] || FW_NETWORK_MODE=unknown
     FW_NETWORK_TYPE=$(firewall_state_value "$AGH_STATE_DIR/network.state" network); [ -n "$FW_NETWORK_TYPE" ] || FW_NETWORK_TYPE=unknown
@@ -160,63 +287,53 @@ firewall_ensure() {
     FW_BYPASS_VPN_TRAFFIC=$(firewall_config_value bypass_vpn_traffic); [ -n "$FW_BYPASS_VPN_TRAFFIC" ] || FW_BYPASS_VPN_TRAFFIC=true
 
     if [ "$FW_NETWORK_STATE" != ready ]; then
-        firewall_remove
+        firewall_remove || return 1
         firewall_state_write degraded network_not_ready
         return 0
     fi
 
-    firewall_remove_jump_all "$firewall_binary_v4" nat "$FW_V4_NAT"
-    firewall_remove_jump_all "$firewall_binary_v4" filter "$FW_V4_FILTER"
-    firewall_remove_jump_all "$firewall_binary_v6" filter "$FW_V6_FILTER"
     if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_TRAFFIC" = true ]; then
-        firewall_remove
+        firewall_remove || { firewall_state_write degraded vpn_remove_failed; return 1; }
         firewall_state_write bypassed vpn_passthrough
         return 0
     fi
-    firewall_ensure_chain "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_nat_chain; return 1; }
-    firewall_ensure_chain "$firewall_binary_v4" filter "$FW_V4_FILTER" || { firewall_remove; firewall_state_write degraded v4_filter_chain; return 1; }
-    firewall_ensure_chain "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded v6_filter_chain; return 1; }
+    # Detach old NAT before rebuilding its narrowly scoped filter exemption.
+    firewall_remove_v4 || { firewall_fail v4_remove_failed; return 1; }
+    FW_V6_CLEANUP_OK=true
+    firewall_remove_v6 || { FW_V6_CLEANUP_OK=false; FW_V6_REASON=v6_remove_failed; }
 
-    if [ "$FW_V4_REDIRECT" = true ]; then
-        if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_DNS" = true ]; then
-            firewall_add_vpn_bypass "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded vpn_v4_bypass; return 1; }
-        fi
-        FW_LAN_TARGET=$(firewall_config_value lan_dns_target)
-        FW_BOOTSTRAP_TARGET=$(firewall_config_value bootstrap_dns)
-        if [ "$FW_NETWORK_MODE" = 1 ] && [ "$FW_NETWORK_VPN" = false ] && [ -n "$FW_LAN_TARGET" ]; then
-            firewall_mode_exception "$FW_LAN_TARGET" || { firewall_remove; firewall_state_write degraded invalid_lan_target; return 1; }
-        fi
-        if [ "$FW_NETWORK_MODE" = 3 ] && [ "$FW_NETWORK_VPN" = false ] && [ -n "$FW_BOOTSTRAP_TARGET" ]; then
-            firewall_mode_exception "$FW_BOOTSTRAP_TARGET" || { firewall_remove; firewall_state_write degraded invalid_bootstrap_target; return 1; }
-        fi
-        firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -p udp --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || { firewall_remove; firewall_state_write degraded v4_redirect; return 1; }
-        firewall_exec "$firewall_binary_v4" -t nat -A "$FW_V4_NAT" -p tcp --dport 53 -j REDIRECT --to-ports "$FW_DNS_PORT" || { firewall_remove; firewall_state_write degraded v4_redirect; return 1; }
-        firewall_insert_jump "$firewall_binary_v4" nat "$FW_V4_NAT" || { firewall_remove; firewall_state_write degraded v4_jump; return 1; }
+    if ! firewall_apply_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ"; then
+        firewall_fail "$FW_APPLY_REASON"
+        return 1
     fi
-    if [ "$FW_NETWORK_VPN" = true ] && [ "$FW_BYPASS_VPN_ENCRYPTED" = true ]; then
-        FW_DOT_BLOCK=false
-        FW_V4_DOQ_BLOCK=false
-        FW_V6_DOT_BLOCK=false
-        FW_V6_DOQ_BLOCK=false
-        if [ "$FW_BYPASS_VPN_DNS" = true ]; then
-            firewall_add_vpn_bypass "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded vpn_v6_bypass; return 1; }
+    FW_V4_REDIRECT=$FW_WANT_V4_DNS
+    FW_DOT_BLOCK=$FW_WANT_V4_DOT
+    FW_DOQ_BLOCK=$FW_WANT_V4_DOQ
+    if [ "$FW_V6_CLEANUP_OK" = true ]; then
+        if [ "$FW_WANT_V6_DNS" = true ] && [ "$FW_CORE_IPV6_READY" != true ]; then
+            FW_WANT_V6_DNS=false
+            FW_V6_REASON=v6_listener_unready
+        fi
+        if [ "$FW_WANT_V6_DNS" = true ] || [ "$FW_WANT_V6_DOT" = true ] || [ "$FW_WANT_V6_DOQ" = true ]; then
+            if ! command -v "$firewall_binary_v6" >/dev/null 2>&1; then
+                FW_V6_REASON=ip6tables_missing
+            elif firewall_apply_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ"; then
+                FW_V6_REDIRECT=$FW_WANT_V6_DNS
+                FW_V6_DOT_BLOCK=$FW_WANT_V6_DOT
+                FW_V6_DOQ_BLOCK=$FW_WANT_V6_DOQ
+            else
+                FW_V6_REASON=$FW_APPLY_REASON
+                firewall_remove_v6 || FW_V6_REASON="${FW_V6_REASON}:rollback_failed"
+            fi
         fi
     fi
-    if [ "$FW_DOT_BLOCK" = true ] || [ "$FW_V4_DOQ_BLOCK" = true ]; then
-        [ "$FW_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p tcp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v4_dot_tcp; return 1; }
-        [ "$FW_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p udp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v4_dot_udp; return 1; }
-        [ "$FW_V4_DOQ_BLOCK" != true ] || firewall_exec "$firewall_binary_v4" -t filter -A "$FW_V4_FILTER" -p udp --dport 784 -j DROP || { firewall_remove; firewall_state_write degraded v4_doq; return 1; }
-        firewall_insert_jump "$firewall_binary_v4" filter "$FW_V4_FILTER" || { firewall_remove; firewall_state_write degraded v4_filter_jump; return 1; }
+    # IPv6 capability failures MUST NOT remove a working IPv4 redirect, nor
+    # replace unfilterable IPv6 DNS with DROP (breaks IPv6-only and Private DNS).
+    if [ -n "$FW_V6_REASON" ]; then
+        firewall_state_write degraded "$FW_V6_REASON"
+    else
+        firewall_state_write ready ready
     fi
-    if [ "$FW_V6_DNS_BLOCK" = true ] || [ "$FW_V6_DOT_BLOCK" = true ] || [ "$FW_V6_DOQ_BLOCK" = true ]; then
-        [ "$FW_V6_DNS_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p tcp --dport 53 -j DROP || { firewall_remove; firewall_state_write degraded v6_dns_tcp; return 1; }
-        [ "$FW_V6_DNS_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p udp --dport 53 -j DROP || { firewall_remove; firewall_state_write degraded v6_dns_udp; return 1; }
-        [ "$FW_V6_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p tcp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v6_dot_tcp; return 1; }
-        [ "$FW_V6_DOT_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p udp --dport 853 -j DROP || { firewall_remove; firewall_state_write degraded v6_dot_udp; return 1; }
-        [ "$FW_V6_DOQ_BLOCK" != true ] || firewall_exec "$firewall_binary_v6" -t filter -A "$FW_V6_FILTER" -p udp --dport 784 -j DROP || { firewall_remove; firewall_state_write degraded v6_doq; return 1; }
-        firewall_insert_jump "$firewall_binary_v6" filter "$FW_V6_FILTER" || { firewall_remove; firewall_state_write degraded v6_filter_jump; return 1; }
-    fi
-    firewall_state_write ready ready
 }
 
 firewall_once() {
@@ -225,7 +342,7 @@ firewall_once() {
     if [ -f "$AGH_RUN_DIR/firewall/request" ] && grep -q '^remove$' "$AGH_RUN_DIR/firewall/request"; then
         rm -f "$AGH_RUN_DIR/firewall/request"
         firewall_remove
-        return 0
+        return $?
     fi
     firewall_ensure
 }

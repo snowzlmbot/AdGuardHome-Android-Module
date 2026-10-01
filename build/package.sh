@@ -59,6 +59,13 @@ else
     done
 fi
 
+fetch_root=${AGH_FETCH_ROOT:-$build_tmp/fetch}
+if [ -z "${AGH_FETCH_ROOT:-}" ]; then sh "$ROOT/build/build-fetch-helper.sh" "$fetch_root" >&2; fi
+for fetch_arch in arm64 armv7; do
+    [ -x "$fetch_root/$fetch_arch/agh-http-fetch" ] || exit 1
+    cp "$fetch_root/$fetch_arch/agh-http-fetch" "$stage/bin/$fetch_arch/"
+    cp "$fetch_root/$fetch_arch/agh-http-fetch.sha256" "$stage/bin/$fetch_arch/"
+done
 find "$stage" -type f -exec touch -d "@$SOURCE_DATE_EPOCH" {} +
 (
     cd "$stage"

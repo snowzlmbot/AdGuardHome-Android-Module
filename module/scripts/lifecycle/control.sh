@@ -10,11 +10,11 @@ export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/agh-config.sh"
 
 control_sync_supervisor() {
-    sh "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1 || true
+    agh_run_script "$SCRIPT_DIR/supervisor.sh" once >/dev/null 2>&1
 }
 
 control_backup() {
-    sh "$SCRIPT_DIR/backup.sh" "$@"
+    agh_run_script "$SCRIPT_DIR/backup.sh" "$@"
 }
 
 control_set_adapter() {
@@ -58,6 +58,21 @@ control_set_policy() {
     control_policy_file="$AGH_CONFIG_DIR/mode.conf"
     [ -f "$control_policy_file" ] || return 1
     control_policy_tmp="$control_policy_file.tmp.$$"
+    if [ "$control_policy_key" = bypass_vpn_traffic ]; then
+        awk -F= -v value="$control_policy_value" '
+            $1 == "bypass_vpn_traffic" || $1 == "bypass_vpn_dns" || $1 == "bypass_vpn_encrypted_dns" { next }
+            { print }
+            END {
+                print "bypass_vpn_traffic=" value
+                print "bypass_vpn_dns=" value
+                print "bypass_vpn_encrypted_dns=" value
+            }
+        ' "$control_policy_file" > "$control_policy_tmp" || return 1
+        chmod 0600 "$control_policy_tmp" || return 1
+        agh_move "$control_policy_tmp" "$control_policy_file" || return 1
+        [ "$(read_key_value bypass_vpn_traffic "$control_policy_file")" = "$control_policy_value" ]
+        return $?
+    fi
     if grep -q "^${control_policy_key}=" "$control_policy_file"; then
         sed "s#^${control_policy_key}=.*#${control_policy_key}=${control_policy_value}#" "$control_policy_file" > "$control_policy_tmp"
     else
@@ -81,7 +96,10 @@ control_set_mode() {
     control_was_disabled=false
     [ -f "$AGH_STATE_DIR/core.disabled" ] && control_was_disabled=true
     : > "$AGH_STATE_DIR/core.disabled"
-    sh "$SCRIPT_DIR/../core/core-worker.sh" stop >/dev/null 2>&1 || true
+    if ! agh_run_script "$SCRIPT_DIR/supervisor.sh" suspend-core; then
+        [ "$control_was_disabled" = true ] || rm -f "$AGH_STATE_DIR/core.disabled"
+        return 1
+    fi
     if ! agh_apply_mode "$control_mode" "$control_yaml" "$control_mode_file" || ! "$control_binary" --config "$control_yaml" --work-dir "$AGH_DATA_DIR" --check-config >/dev/null 2>&1; then
         atomic_copy "$control_yaml_backup" "$control_yaml" || true
         atomic_copy "$control_mode_backup" "$control_mode_file" || true
@@ -95,7 +113,7 @@ control_set_mode() {
     [ "$control_was_disabled" = true ] || rm -f "$AGH_STATE_DIR/core.disabled"
     mkdir -p "$AGH_RUN_DIR/firewall"
     printf 'remove\n' > "$AGH_RUN_DIR/firewall/request"
-    sh "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
+    agh_run_script "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
 }
 
 control_command=${1:-status}
@@ -106,31 +124,35 @@ case "$control_command" in
     start)
         ensure_dirs || exit 1
         rm -f "$AGH_STATE_DIR/core.disabled" "$AGH_STATE_DIR/paused" "$AGH_RUN_DIR/stop"
-        sh "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
+        agh_run_script "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
         printf '%s\n' 'request=start'
         ;;
     backup) control_backup create ;;
     backup-latest) control_backup latest ;;
     backup-restore) control_backup restore ;;
-    file-rules-status) sh "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
-    file-rules-set-url) sh "$SCRIPT_DIR/../adapters/file-rules.sh" set-url "$control_argument" "$control_value" "$control_extra" ;;
+    file-rules-status) agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
+    file-rules-set-url) agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" set-url "$control_argument" "$control_value" "$control_extra" ;;
     file-rules-refresh)
-        sh "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
-        FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
-        control_sync_supervisor
-        printf 'request=file-rules-refresh\npackage=%s\n' "${control_argument:-all}"
+        if ! agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" refresh; then
+            printf 'rules_refresh_failed:%s\n' "$(read_key_value reason "$AGH_STATE_DIR/file-rules.state")" >&2
+            exit 1
+        fi
+        printf 'request=file-rules-refresh\nrules_refresh=ready\n'
         ;;
     file-apply)
-        FILE_FORCE_ONCE=1 sh "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
-        control_sync_supervisor
+        if ! FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument"; then
+            printf 'file_cleanup_failed:%s\n' "$(read_key_value reason "$AGH_STATE_DIR/file.state")" >&2
+            exit 1
+        fi
+        control_sync_supervisor || exit 1
         printf 'request=file-apply\npackage=%s\n' "${control_argument:-all}"
         ;;
-    set-mode) control_set_mode "$control_argument"; control_sync_supervisor; printf 'mode=%s\n' "$control_argument" ;;
-    set-policy) control_set_policy "$control_argument" "$control_value"; control_sync_supervisor; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
-    enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor; printf '%s\n' 'request=enable-proxy' ;;
-    disable-proxy) control_set_adapter proxy false; control_set_selection_marker proxy false; [ -x "$SCRIPT_DIR/../adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/../adapters/proxy-worker.sh" --clean || true; control_sync_supervisor; printf '%s\n' 'request=disable-proxy' ;;
-    enable-file) control_set_adapter file true; control_set_selection_marker file_adapter true; control_sync_supervisor; printf '%s\n' 'request=enable-file' ;;
-    disable-file) control_set_adapter file false; control_set_selection_marker file_adapter false; [ -x "$SCRIPT_DIR/../adapters/file-worker.sh" ] && "$SCRIPT_DIR/../adapters/file-worker.sh" --clean || true; control_sync_supervisor; printf '%s\n' 'request=disable-file' ;;
+    set-mode) control_set_mode "$control_argument" || exit 1; control_sync_supervisor || exit 1; printf 'mode=%s\n' "$control_argument" ;;
+    set-policy) control_set_policy "$control_argument" "$control_value" || exit 1; control_sync_supervisor || exit 1; printf 'policy=%s=%s\n' "$control_argument" "$control_value" ;;
+    enable-proxy) control_set_adapter proxy true; control_set_selection_marker proxy true; control_sync_supervisor || exit 1; printf '%s\n' 'request=enable-proxy' ;;
+    disable-proxy) control_set_adapter proxy false; control_set_selection_marker proxy false; [ -x "$SCRIPT_DIR/../adapters/proxy-worker.sh" ] && "$SCRIPT_DIR/../adapters/proxy-worker.sh" --clean || true; control_sync_supervisor || exit 1; printf '%s\n' 'request=disable-proxy' ;;
+    enable-file) control_set_adapter file true; control_set_selection_marker file_adapter true; control_sync_supervisor || exit 1; printf '%s\n' 'request=enable-file' ;;
+    disable-file) control_set_adapter file false; control_set_selection_marker file_adapter false; [ -x "$SCRIPT_DIR/../adapters/file-worker.sh" ] && "$SCRIPT_DIR/../adapters/file-worker.sh" --clean || true; control_sync_supervisor || exit 1; printf '%s\n' 'request=disable-file' ;;
     pause|resume|enable|disable|restart-core)
         ensure_dirs || exit 1
         control_request_dir="$AGH_RUN_DIR/control"
@@ -139,7 +161,7 @@ case "$control_command" in
         printf '%s\n' "$control_command" > "$control_tmp"
         sync
         mv -f "$control_tmp" "$control_request_dir/$control_command"
-        control_sync_supervisor
+        control_sync_supervisor || exit 1
         printf '%s\n' "request=$control_command"
         ;;
     status)

@@ -7,4 +7,12 @@ dns:
   port: 5591
   upstream_dns:
     - https://dns.example/dns-query
-filters: []
+  ratelimit: 0
+filtering:
+  protection_enabled: true
+  filtering_enabled: true
+filters:
+  - enabled: true
+    url: https://anti-ad.net/easylist.txt
+    name: anti-AD (AdGuard)
+    id: 10001

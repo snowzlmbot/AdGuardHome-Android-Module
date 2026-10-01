@@ -29,7 +29,7 @@ diagnostics_redact() {
 
 diagnostics_logs() {
     diagnostics_lines=${DIAGNOSTICS_LOG_LINES:-80}
-    for diagnostics_log in core-process.log events.log supervisor.log network-worker.log firewall-worker.log proxy-worker.log file-worker.log; do
+    for diagnostics_log in events.log supervisor.log firewall-worker.log file_rules.log file-rules-worker.log file-worker.log network-worker.log proxy-worker.log core-process.log; do
         diagnostics_path="$AGH_LOG_DIR/$diagnostics_log"
         [ -f "$diagnostics_path" ] || continue
         printf '\n===== %s =====\n' "$diagnostics_log"
@@ -49,6 +49,7 @@ diagnostics_firewall="$AGH_STATE_DIR/firewall.state"
 diagnostics_network="$AGH_STATE_DIR/network.state"
 diagnostics_proxy="$AGH_STATE_DIR/proxy.state"
 diagnostics_file="$AGH_STATE_DIR/file.state"
+diagnostics_rules="$AGH_STATE_DIR/file-rules.state"
 diagnostics_mode=$(sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p')
 case "$diagnostics_mode" in
     1) diagnostics_mode_name='内网兼容' ;;
@@ -115,6 +116,8 @@ printf 'ipv6_dns_block=%s\n' "$( sed -n 's/^redirect_ipv6_dns=//p' "$AGH_CONFIG_
 printf 'dot_block=%s\n' "$( sed -n 's/^block_ipv4_dot=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'doq_block=%s\n' "$( sed -n 's/^block_ipv4_doq=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'vpn_passthrough=%s\n' "$( sed -n 's/^bypass_vpn_traffic=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+printf 'bypass_vpn_traffic=%s\n' "$( sed -n 's/^bypass_vpn_traffic=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+printf 'network_type=%s\n' "$(state_value "$diagnostics_network" network || printf other)"
 printf 'web_url=%s\n' "$( [ "$diagnostics_core_state" = ready ] && [ -n "$diagnostics_web_port" ] && printf 'http://127.0.0.1:%s' "$diagnostics_web_port" || printf unavailable )"
 printf 'username=admin\n'
 printf 'filters=%s\n' "$diagnostics_filter_state"
@@ -138,16 +141,19 @@ printf 'core_reason=%s\n' "$(state_value "$diagnostics_core" reason || printf un
 printf 'core_retry_in=%s\n' "$(state_value "$diagnostics_core" retry_in || printf 0)"
 printf 'network_reason=%s\n' "$(state_value "$diagnostics_network" reason || printf unknown)"
 printf 'proxy_reason=%s\n' "$(state_value "$diagnostics_proxy" reason || printf unknown)"
-diagnostics_file_rules_url=$(state_value "$diagnostics_file" url)
-[ -n "$diagnostics_file_rules_url" ] || diagnostics_file_rules_url=$(diagnostics_config_value rules_url)
-[ -n "$diagnostics_file_rules_url" ] || diagnostics_file_rules_url='https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf'
-diagnostics_file_rules_sha_url=$(state_value "$diagnostics_file" sha256_url)
-[ -n "$diagnostics_file_rules_sha_url" ] || diagnostics_file_rules_sha_url=$(diagnostics_config_value rules_sha256_url)
-[ -n "$diagnostics_file_rules_sha_url" ] || diagnostics_file_rules_sha_url='https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf.sha256'
-diagnostics_file_rules_view_url=$(state_value "$diagnostics_file" view_url)
+diagnostics_file_rules_url=$(diagnostics_config_value rules_url)
+[ -n "$diagnostics_file_rules_url" ] || diagnostics_file_rules_url=$(state_value "$diagnostics_rules" url)
+[ -n "$diagnostics_file_rules_url" ] || diagnostics_file_rules_url=$(read_key_value rules_url "$MODDIR/config/file-rules-source.conf")
+diagnostics_file_rules_sha_url=$(diagnostics_config_value rules_sha256_url)
+[ -n "$diagnostics_file_rules_sha_url" ] || diagnostics_file_rules_sha_url=$(state_value "$diagnostics_rules" sha256_url)
+[ -n "$diagnostics_file_rules_sha_url" ] || diagnostics_file_rules_sha_url=$(read_key_value rules_sha256_url "$MODDIR/config/file-rules-source.conf")
+diagnostics_file_rules_view_url=$(diagnostics_config_value rules_view_url)
 [ -n "$diagnostics_file_rules_view_url" ] || diagnostics_file_rules_view_url="$diagnostics_file_rules_url"
 printf 'file_reason=%s\n' "$(state_value "$diagnostics_file" reason || printf unknown)"
-printf 'file_rules_state=%s\n' "$(state_value "$diagnostics_file" rules_state || printf unknown)"
+diagnostics_rule_state=$(state_value "$diagnostics_rules" state)
+[ -n "$diagnostics_rule_state" ] || diagnostics_rule_state=$(state_value "$diagnostics_file" rules_state)
+printf 'file_rules_state=%s\n' "${diagnostics_rule_state:-baseline}"
+printf 'file_rules_reason=%s\n' "$(state_value "$diagnostics_rules" reason || state_value "$diagnostics_file" rules_reason || printf unknown)"
 printf 'file_rules_sha256=%s\n' "$(state_value "$diagnostics_file" rules_sha256 || printf unknown)"
 printf 'file_rules_url=%s\n' "$diagnostics_file_rules_url"
 printf 'file_rules_sha256_url=%s\n' "$diagnostics_file_rules_sha_url"

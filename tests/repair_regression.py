@@ -127,14 +127,15 @@ def test_proxy_manifest_is_idempotent() -> None:
 def test_file_adapter_skips_changed_target_and_continues() -> None:
     with tempfile.TemporaryDirectory() as td:
         root = pathlib.Path(td)
-        changed = root / "changed"
-        untouched = root / "untouched"
+        changed = root / "android/user/0/com.zhihu.android/files/ad"
+        untouched = root / "android/user/0/tv.danmaku.bili/files/splash2"
         write(changed / "cached.bin", "original")
         write(untouched / "cached.bin", "original")
         manifest_source = root / "targets.conf"
-        write(manifest_source, f"changed|{changed}|directory|medium|if-unchanged|com.example.changed|active\nuntouched|{untouched}|directory|medium|if-unchanged|com.example.untouched|active\n")
+        write(manifest_source, "changed|/data/user/0/com.zhihu.android/files/ad|directory|medium|if-unchanged|com.zhihu.android|active\nuntouched|/data/user/0/tv.danmaku.bili/files/splash2|directory|medium|if-unchanged|tv.danmaku.bili|active\n")
         write(root / "config" / "file-adapter.conf", f"enabled=true\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n")
         env = runtime_env(root)
+        env["AGH_FILE_DATA_ROOT"] = str(root / "android")
         worker = MODULE / "scripts" / "adapters" / "file-worker.sh"
         run(["sh", str(worker), "once"], env=env)
         write(changed / "new.bin", "new data")
@@ -152,16 +153,17 @@ def test_file_adapter_skips_changed_target_and_continues() -> None:
 def test_file_adapter_package_filter_does_not_create_placeholders() -> None:
     with tempfile.TemporaryDirectory() as td:
         root = pathlib.Path(td)
-        installed = root / "installed"
-        absent = root / "absent"
+        installed = root / "android/user/0/com.zhihu.android/files/ad"
+        absent = root / "android/user/0/tv.danmaku.bili/files/splash2"
         write(installed / "ad.bin", "ad")
         manifest_source = root / "targets.conf"
-        write(manifest_source, f"installed|{installed}|directory|medium|if-unchanged|com.example.installed|active\nabsent|{absent}|directory|medium|if-unchanged|com.example.absent|active\n")
+        write(manifest_source, "installed|/data/user/0/com.zhihu.android/files/ad|directory|medium|if-unchanged|com.zhihu.android|active\nabsent|/data/user/0/tv.danmaku.bili/files/splash2|directory|medium|if-unchanged|tv.danmaku.bili|active\n")
         write(root / "config" / "file-adapter.conf", f"enabled=false\nmax_backup_bytes=10485760\ntarget_manifest={manifest_source}\n")
         env = runtime_env(root)
         env["FILE_FORCE_ONCE"] = "1"
+        env["AGH_FILE_DATA_ROOT"] = str(root / "android")
         worker = MODULE / "scripts" / "adapters" / "file-worker.sh"
-        run(["sh", str(worker), "once", "com.example.installed"], env=env)
+        run(["sh", str(worker), "once", "com.zhihu.android"], env=env)
         if absent.exists():
             raise AssertionError("file adapter created a placeholder for an absent app")
         if any(installed.iterdir()):
@@ -176,7 +178,7 @@ def test_firewall_exempts_all_plain_dns_upstreams() -> None:
         fake = """#!/bin/sh
 printf '%s %s\\n' "$0" "$*" >> "$FIREWALL_TEST_LOG"
 case " $* " in
-  *" -C "*|*" -L "*) exit 1 ;;
+  *" -C "*|*" -L "*|*" -D "*) exit 1 ;;
 esac
 exit 0
 """
@@ -188,13 +190,17 @@ exit 0
         write(root / "state" / "core.state", "state=ready\nfirewall_authorized=1\ndns_port=5591\n")
         write(root / "state" / "ports.conf", "web_port=3000\ndns_port=5591\n")
         env = runtime_env(root)
-        env.update({"PATH": f"{fake_bin}:{env['PATH']}", "FIREWALL_TEST_LOG": str(log), "FIREWALL_NO_WAIT": "1"})
+        env.update({"PATH": f"{fake_bin}:{env['PATH']}", "FIREWALL_NO_WAIT": "1",
+                    "IPTABLES_BIN": str(PROJECT / "tests/fixtures/iptables-recording-bin/iptables"),
+                    "IP6TABLES_BIN": str(PROJECT / "tests/fixtures/iptables-recording-bin/ip6tables"),
+                    "IPTABLES_RECORD_FILE": str(log), "IP6TABLES_RECORD_FILE": str(root / "firewall6.log")})
         worker = MODULE / "scripts" / "firewall" / "firewall-worker.sh"
         run(["sh", str(worker), "once"], env=env)
         trace = log.read_text()
+        assert_contains(trace, "--uid-owner 0 -j RETURN")
         for ip in ("223.5.5.5", "119.29.29.29"):
-            assert_contains(trace, f"-d {ip} -p udp --dport 53 -j RETURN")
-            assert_contains(trace, f"-d {ip} -p tcp --dport 53 -j RETURN")
+            if f"-d {ip} -p udp --dport 53 -j RETURN" in trace:
+                raise AssertionError("application DNS can bypass filtering through a global upstream exception")
 
 
 def test_udp_port_is_not_reported_free() -> None:

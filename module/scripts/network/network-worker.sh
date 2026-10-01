@@ -40,7 +40,15 @@ network_valid_ip_list() {
     IFS=,
     for network_address in $network_list; do
         [ -n "$network_address" ] || { IFS=$network_old_ifs; return 1; }
+        network_address_base=${network_address%%%*}
         case "$network_address" in
+            *%*)
+                network_zone=${network_address#*%}
+                case "$network_address_base" in *:*) ;; *) IFS=$network_old_ifs; return 1 ;; esac
+                case "$network_zone" in ''|*[!A-Za-z0-9_.-]*) IFS=$network_old_ifs; return 1 ;; esac
+                ;;
+        esac
+        case "$network_address_base" in
             *[!0-9a-fA-F:.]*) IFS=$network_old_ifs; return 1 ;;
             *[.:]*) ;;
             *) IFS=$network_old_ifs; return 1 ;;
@@ -116,6 +124,7 @@ network_read_snapshot() {
         return 1
     fi
     NETWORK_TYPE=$(network_value "$network_tmp" network)
+    NETWORK_INTERFACE=$(network_value "$network_tmp" interface)
     NETWORK_VPN=$(network_value "$network_tmp" vpn)
     NETWORK_DNS4=$(network_value "$network_tmp" dns4)
     NETWORK_DNS6=$(network_value "$network_tmp" dns6)

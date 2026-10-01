@@ -12,12 +12,17 @@ trap cleanup EXIT INT TERM
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
 asset="$fixture/agh.tgz"
+if [ -n "${CORE_NATIVE_BINARY:-}" ]; then
+    mkdir -p "$fixture/AdGuardHome"
+    cp "$CORE_NATIVE_BINARY" "$fixture/AdGuardHome/AdGuardHome"
+else
 curl -LfsS --retry 3 --max-time 180 \
   https://github.com/AdguardTeam/AdGuardHome/releases/download/v0.107.79/AdGuardHome_linux_amd64.tar.gz \
   -o "$asset"
 actual=$(sha256sum "$asset" | awk '{print $1}')
 [ "$actual" = c48f4a43000665484c5ec28177de11a004759b620dae8f77b2aabefc9ef3687f ] || fail 'native tarball checksum mismatch'
 tar -xzf "$asset" -C "$fixture"
+fi
 
 export MODDIR="$ROOT/module"
 export AGH_ROOT="$fixture/agh"
@@ -44,6 +49,12 @@ if grep -q '^users:[[:space:]]*\[\]' "$AGH_CONFIG_DIR/AdGuardHome.yaml"; then fa
 grep -F 'password: $2' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'bcrypt password hash missing'
 grep -F 'https://1.12.12.12/dns-query' "$AGH_CONFIG_DIR/AdGuardHome.yaml" >/dev/null || fail 'mode upstream policy was not applied'
 web_port=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
-curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
+if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 5 "http://127.0.0.1:$web_port/" >/dev/null || fail 'native Web UI not reachable'
+else
+    wget -qO /dev/null --timeout=5 "http://127.0.0.1:$web_port/" || fail 'native Web UI not reachable'
+fi
+sh "$ROOT/module/scripts/core/core-worker.sh" check-ready || fail 'read-only native readiness check failed'
+python3 "$ROOT/tests/dns_protocol_test.py" || fail 'native DNS filtering/protocol regression failed'
 sh "$ROOT/module/scripts/core/core-worker.sh" stop || fail 'native core stop failed'
 printf '%s\n' 'native core tests passed'
