@@ -40,6 +40,8 @@ jobs:
           sh tests/install_options_test.sh
           sh tests/i18n_test.sh
           sh tests/webui_test.sh
+          FIREWALL_TEST_BUSYBOX=1 sh tests/firewall_test.sh
+          FILE_ADAPTER_TEST_SHELL=busybox sh tests/file_adapter_test.sh
       - name: Run packaging test
         shell: sh
         run: sh tests/package_test.sh

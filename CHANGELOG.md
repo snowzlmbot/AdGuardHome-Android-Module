@@ -7,7 +7,7 @@
 - Made workers use the KernelSU-provided BusyBox shell environment, logged startup failures, and made the Android CA path explicit for encrypted upstreams.
 - Kept cloned-user DNS on the module-owned path, stopped globally exempting application DNS to upstreams, and disabled strict port-853 blocking by default because it can make Private DNS clients lose all connectivity.
 - Added an offline, checksummed anti-AD seed with filtering enabled by default; explicit user filter removals and custom lists remain untouched.
-- Extended file cleanup safety for Android user/profile paths, including Coolapk/WeChat-compatible package data handling without deleting protected databases or app roots.
+- Extended file cleanup safety for Android user/profile paths and dedicated cache regeneration; no guessed Coolapk/WeChat paths or protected databases/app roots are cleared.
 
 ## 0.1.16
 

@@ -190,7 +190,10 @@ exit 0
         write(root / "state" / "core.state", "state=ready\nfirewall_authorized=1\ndns_port=5591\n")
         write(root / "state" / "ports.conf", "web_port=3000\ndns_port=5591\n")
         env = runtime_env(root)
-        env.update({"PATH": f"{fake_bin}:{env['PATH']}", "FIREWALL_TEST_LOG": str(log), "FIREWALL_NO_WAIT": "1"})
+        env.update({"PATH": f"{fake_bin}:{env['PATH']}", "FIREWALL_NO_WAIT": "1",
+                    "IPTABLES_BIN": str(PROJECT / "tests/fixtures/iptables-recording-bin/iptables"),
+                    "IP6TABLES_BIN": str(PROJECT / "tests/fixtures/iptables-recording-bin/ip6tables"),
+                    "IPTABLES_RECORD_FILE": str(log), "IP6TABLES_RECORD_FILE": str(root / "firewall6.log")})
         worker = MODULE / "scripts" / "firewall" / "firewall-worker.sh"
         run(["sh", str(worker), "once"], env=env)
         trace = log.read_text()
