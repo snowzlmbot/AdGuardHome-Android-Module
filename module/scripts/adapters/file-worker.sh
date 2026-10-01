@@ -285,7 +285,7 @@ file_restore_record() (
     file_path=$file_saved_path
     case "$file_path" in "$FILE_DATA_ROOT/data/"*) file_path="$FILE_PRIMARY_ROOT/${file_path#"$FILE_DATA_ROOT/data/"}" ;; esac
     # Retained blocked provenance may be restored from a verified module backup,
-    # but can never be selected for cleanup by a local or downloaded rule.
+    # but can never be selected for cleanup by any configured rule.
     file_safe_target "$file_path" "$file_type" restore || return 1
     file_tree_safe "$file_path" "$file_type" || return 1
     backup_metadata "$file_path" || return 1
