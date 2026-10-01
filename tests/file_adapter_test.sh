@@ -30,7 +30,13 @@ reset_fixture() {
     printf 'enabled=true\nmax_backup_bytes=10485760\ntarget_manifest=%s\n' "$fixture/targets.conf" > "$AGH_CONFIG_DIR/file-adapter.conf"
 }
 rule() { printf '%s\n' "$1" > "$fixture/targets.conf"; }
-run() { sh "$worker" "$@"; }
+run() {
+    if [ "${FILE_ADAPTER_TEST_TRACE:-0}" = 1 ]; then
+        sh -x "$worker" "$@"
+    else
+        sh "$worker" "$@"
+    fi
+}
 ad_rule='ads|/data/data/com.anjuke.android.app/cache/splash_ad|directory|medium|if-unchanged|com.anjuke.android.app|active|repeat-cache'
 file_rule='screen|/data/data/com.cn21.ecloud/files/ecloud_current_screenad.obj|file|low|if-unchanged|com.cn21.ecloud|active'
 
