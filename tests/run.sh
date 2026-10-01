@@ -32,6 +32,7 @@ done
 python3 "$ROOT/tests/dns_filter_regression.py"
 python3 "$ROOT/tests/boot_regression_test.py"
 python3 "$ROOT/tests/lifecycle_dns_safety_test.py"
+python3 "$ROOT/tests/android_runtime_regression.py"
 node "$ROOT/tests/webui_behavior_test.js"
 python3 "$ROOT/tests/vpn_policy_test.py"
 python3 "$ROOT/tests/cloud_rules_live_test.py"

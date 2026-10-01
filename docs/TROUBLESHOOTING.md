@@ -20,6 +20,12 @@ For DNS interception, turn Android Private DNS off and disable application-provi
 
 The offline anti-AD seed blocks independent ad domains, including gdt.qq.com, without blocking all qq.com or weixin.qq.com. Existing custom lists and deliberately disabled/removed filters are preserved. Shared-domain HTTPS feed ads (for example WeChat Moments/video feeds) cannot reliably be removed by DNS. No TLS interception or deletion of chat databases is included.
 
+## Android runtime recovery
+
+Scoped IPv6 DNS values (for example `fe80::1%wlan0`) are valid Android link-local addresses, not disconnected networks. Workers use the manager-provided static BusyBox directly; setting ASH_STANDALONE in mksh alone is not enough. Persistent module directories are private (0700).
+
+The module may quarantine an incompatible module-owned cloud-rule cache and restore its validated bundled baseline without internet access. Explicit custom manifest paths are never silently replaced. The static HTTPS fetcher tries discovered DNS/bootstrap endpoints if Android's default resolver points to a non-listening loopback port; TLS certificates and payload checks remain mandatory.
+
 ## Device validation still required
 
 Cloud tests exercise real AdGuard Home queries over IPv4/IPv6 UDP/TCP, A/AAAA, normal domains, burst traffic, installer payloads, simulated firewall ordering, and BusyBox startup. They do not prove Android netd/eBPF behavior, OEM clone profiles, or KSU SELinux/device compatibility. Test a normal app and its clone on Wi-Fi/mobile and IPv6, then repeat with Private DNS/VPN as separate cases.

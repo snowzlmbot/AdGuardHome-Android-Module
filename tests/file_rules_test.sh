@@ -68,4 +68,19 @@ for unsafe_url in "$(printf 'https://raw.githubusercontent.com/example/repo/main
     [ "$(sha256sum "$AGH_CONFIG_DIR/file-adapter.conf")" = "$config_hash" ] || fail 'rejected URL changed config'
 done
 [ "$(sha256sum "$ROOT/module/targets/file-ad-targets.conf" | cut -d ' ' -f1)" = "$(cut -d ' ' -f1 "$ROOT/module/targets/file-ad-targets.conf.sha256")" ] || fail 'maintainer checksum stale'
+# Prove resolver fallback is passed to the static helper after an explicit
+# default-resolution failure. This is a fixture, not a network success claim.
+printf 'dns4=192.0.2.53\ndns6=fe80::1%%wlan0\n' > "$AGH_STATE_DIR/network.state"
+cat > "$fixture/fetch-helper" <<'EOF'
+#!/bin/sh
+[ -n "${AGH_FETCH_DNS:-}" ] || { printf 'lookup: loopback resolver refused\n' >&2; exit 1; }
+printf '%s\n' "$AGH_FETCH_DNS" > "$FAKE_FETCH_DNS_TRACE"
+case "$1" in *.sha256) cp "$FAKE_SHA" "$2" ;; *) cp "$FAKE_RULES" "$2" ;; esac
+EOF
+chmod 0755 "$fixture/fetch-helper"
+export FAKE_FETCH_DNS_TRACE="$fixture/dns-trace"
+export FAKE_RULES="$ROOT/module/targets/file-ad-targets.conf"
+export FAKE_SHA="$ROOT/module/targets/file-ad-targets.conf.sha256"
+AGH_FETCH_BIN="$fixture/fetch-helper" sh "$ROOT/module/scripts/adapters/file-rules.sh" refresh || fail 'static resolver fallback failed'
+grep -F '192.0.2.53:53,[fe80::1%wlan0]:53' "$fixture/dns-trace" >/dev/null || fail 'scoped discovered DNS was not passed to helper'
 printf '%s\n' 'file rules tests passed'

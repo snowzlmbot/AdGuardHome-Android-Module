@@ -8,7 +8,7 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
-> 构建中：**0.1.19**。发布前请以 [CI 修复分支](https://github.com/snowzlmbot/AdGuardHome-Android-Module/tree/fix/ksu-clone-dns-filtering) 的已验证 artifact 为准；不要刷 Source ZIP。
+> 构建中：**0.1.20**。发布前请以 [CI 修复分支](https://github.com/snowzlmbot/AdGuardHome-Android-Module/tree/fix/ksu-clone-dns-filtering) 的已验证 artifact 为准；不要刷 Source ZIP。
 
 ## 项目入口
 
@@ -162,7 +162,7 @@ AdGuardHome-Android-Module/
 
 详细目录规范：[`docs/MODULE_LAYOUT.md`](docs/MODULE_LAYOUT.md)
 
-## 0.1.19 故障排查
+## 0.1.20 故障排查
 
 见 [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)。安装包和 Actions artifact 外层 ZIP 不同；KSU 的 archive 错误通常发生在读取根目录 `module.prop` 时。
 

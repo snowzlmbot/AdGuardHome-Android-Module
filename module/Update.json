@@ -1,6 +1,6 @@
 {
-  "version": "0.1.19",
-  "versionCode": 2026100119,
-  "zipUrl": "https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.19/AdGuardHome-Android-Module-0.1.19-agh-0.107.79.zip",
+  "version": "0.1.20",
+  "versionCode": 2026100120,
+  "zipUrl": "https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/AdGuardHome-Android-Module-0.1.20-agh-0.107.79.zip",
   "changelog": "https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/CHANGELOG.md"
 }

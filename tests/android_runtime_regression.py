@@ -27,17 +27,21 @@ class AndroidRuntimeRegression(unittest.TestCase):
             p.chmod(0o755)
         busybox=shutil.which('busybox')
         assert busybox, 'BusyBox is required'
-        self.env.update(AGH_BUSYBOX=busybox, PATH=str(self.bin)+':'+os.environ['PATH'])
+        self.env.update(AGH_BUSYBOX=busybox, AGH_COMMAND_ENV_READY='1', PATH=str(self.bin)+':'+os.environ['PATH'])
         shutil.copy(MODULE/'config/mode.conf', self.root/'config/mode.conf')
     def worker(self, rel, *args, **extra):
         return subprocess.run(['sh', str(MODULE/rel), *args], env=dict(self.env, **extra), capture_output=True, text=True, timeout=30)
     def test_scoped_ipv6_dns_is_not_a_disconnected_network(self):
         snap = self.root/'network.snapshot'
-        snap.write_text('network=wifi\ninterface=wlan0\nvpn=true\ndns4=192.0.2.1\ndns6=fe80::1%wlan0\n')
+        for address in ('fe80::1%wlan0','fe80::1%3'):
+            snap.write_text('network=wifi\ninterface=wlan0\nvpn=true\ndns4=192.0.2.1\ndns6='+address+'\n')
+            result=self.worker('scripts/network/network-worker.sh','once',NETWORK_SNAPSHOT_FILE=str(snap))
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertIn('state=ready\n',(self.root/'state/network.state').read_text())
+            self.assertIn('dns6='+address+'\n',(self.root/'state/network.state').read_text())
+        snap.write_text('network=wifi\ninterface=wlan0\nvpn=true\ndns4=192.0.2.1\ndns6=fe80::1%wlan0;bad\n')
         result=self.worker('scripts/network/network-worker.sh','once',NETWORK_SNAPSHOT_FILE=str(snap))
-        self.assertEqual(result.returncode,0,result.stderr)
-        self.assertIn('state=ready\n',(self.root/'state/network.state').read_text())
-        self.assertIn('dns6=fe80::1%wlan0\n',(self.root/'state/network.state').read_text())
+        self.assertNotEqual(result.returncode,0)
     def test_file_validator_uses_static_busybox_not_broken_system_awk(self):
         result=self.worker('scripts/adapters/file-rules.sh','validate',str(MODULE/'targets/file-ad-targets.conf'))
         self.assertEqual(result.returncode,0,result.stderr)

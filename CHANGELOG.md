@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.20
+
+- Accept scoped IPv6 DNS addresses reported by Android without disabling a usable network.
+- Re-execute file-backed workers in the manager's static BusyBox shell and remove unverified toybox dependencies; inherited environment markers cannot suppress setup.
+- Quarantine incompatible module-owned downloaded manifests and recover the validated bundled baseline offline; explicit custom paths remain fail-closed.
+- Add explicit DNS fallback for the static HTTPS downloader when Android exposes no working system resolver; certificate verification is unchanged.
+- Keep persistent runtime directories private with 0700 permissions.
+
 ## 0.1.19
 
 - Fix the VPN switch state-key mismatch and clear every VPN DNS exemption when disabled.
