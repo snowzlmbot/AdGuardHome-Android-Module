@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.18
+
+- Remove and verify module-owned DNS redirection before restarting, disabling, recovering, or changing the core mode; do not stop the listener when rule removal fails.
+- Execute stop cleanup synchronously rather than leaving unconsumed component requests; a one-shot status cycle cannot revive a stopped service.
+- Add a read-only core readiness check and lifecycle-order regressions for normal and injected-failure paths.
+
 ## 0.1.17
 
 - Strengthened the KernelSU archive contract: validation rejects Source ZIPs, wrapper directories, missing runtime entries, and damaged payloads before delivery.

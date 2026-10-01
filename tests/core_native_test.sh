@@ -54,6 +54,7 @@ if command -v curl >/dev/null 2>&1; then
 else
     wget -qO /dev/null --timeout=5 "http://127.0.0.1:$web_port/" || fail 'native Web UI not reachable'
 fi
+sh "$ROOT/module/scripts/core/core-worker.sh" check-ready || fail 'read-only native readiness check failed'
 python3 "$ROOT/tests/dns_protocol_test.py" || fail 'native DNS filtering/protocol regression failed'
 sh "$ROOT/module/scripts/core/core-worker.sh" stop || fail 'native core stop failed'
 printf '%s\n' 'native core tests passed'

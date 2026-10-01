@@ -38,6 +38,7 @@ supervisor_enabled() {
 
 supervisor_run_worker() {
     supervisor_name=$1
+    supervisor_worker_action=${2:-once}
     supervisor_worker="$supervisor_worker_dir/$supervisor_name-worker.sh"
     if [ ! -x "$supervisor_worker" ]; then
         case "$supervisor_name" in
@@ -48,15 +49,36 @@ supervisor_run_worker() {
             *) supervisor_worker="$SCRIPT_DIR/$supervisor_name-worker.sh" ;;
         esac
     fi
-    [ -x "$supervisor_worker" ] || return 0
+    [ -f "$supervisor_worker" ] || { log_message supervisor "$supervisor_name worker missing"; return 1; }
     supervisor_worker_log="$AGH_LOG_DIR/$supervisor_name-worker.log"
     log_rotate_file "$supervisor_worker_log"
-    agh_run_script "$supervisor_worker" once >>"$supervisor_worker_log" 2>&1
+    agh_run_script "$supervisor_worker" "$supervisor_worker_action" >>"$supervisor_worker_log" 2>&1
     supervisor_rc=$?
     if [ "$supervisor_rc" -ne 0 ]; then
         log_message supervisor "$supervisor_name worker exited with status $supervisor_rc"
     fi
     return "$supervisor_rc"
+}
+
+# Finish removal before changing the DNS listener: a queued request alone
+# leaves traffic pointed at a stopped core until the next successful cycle.
+supervisor_detach_dns() {
+    supervisor_request firewall remove || return 1
+    supervisor_run_worker firewall || return 1
+    [ "$(supervisor_state_value "$AGH_STATE_DIR/firewall.state" state)" = removed ]
+}
+
+supervisor_stop_components() {
+    supervisor_detach_dns || return 1
+    supervisor_stop_warning=0
+    supervisor_run_worker core stop || supervisor_stop_warning=1
+    if supervisor_enabled "$AGH_CONFIG_DIR/proxy-adapter.conf" || [ -s "$AGH_BACKUP_DIR/proxy/manifest.tsv" ]; then
+        supervisor_run_worker proxy stop || supervisor_stop_warning=1
+    fi
+    if supervisor_enabled "$AGH_CONFIG_DIR/file-adapter.conf" || [ -s "$AGH_BACKUP_DIR/file/manifest.tsv" ]; then
+        supervisor_run_worker file stop || supervisor_stop_warning=1
+    fi
+    return "$supervisor_stop_warning"
 }
 
 supervisor_consume_control() {
@@ -81,8 +103,8 @@ supervisor_consume_control() {
         rm -f "$supervisor_control_dir/enable"
     fi
     if [ -f "$supervisor_control_dir/restart-core" ]; then
-        supervisor_worker="$SCRIPT_DIR/../core/core-worker.sh"
-        [ -x "$supervisor_worker" ] && agh_run_script "$supervisor_worker" stop >/dev/null 2>&1 || true
+        supervisor_detach_dns || return 1
+        supervisor_run_worker core stop || return 1
         rm -f "$supervisor_control_dir/restart-core"
     fi
 }
@@ -172,10 +194,25 @@ supervisor_release_cycle_lock() {
 supervisor_once() {
     ensure_dirs || return 1
     supervisor_acquire_cycle_lock || return 0
+    if [ -f "$AGH_RUN_DIR/stop" ]; then
+        supervisor_stop_components
+        supervisor_stop_rc=$?
+        supervisor_release_cycle_lock
+        return "$supervisor_stop_rc"
+    fi
     SUPERVISOR_CYCLE=$(( ${SUPERVISOR_CYCLE:-0} + 1 ))
     module_detect_language || MODULE_LANG=en
-    supervisor_consume_control
+    if ! supervisor_consume_control; then
+        supervisor_release_cycle_lock
+        return 1
+    fi
     supervisor_run_worker network || true
+    if [ -f "$AGH_STATE_DIR/core.disabled" ] || ! supervisor_run_worker core check-ready; then
+        if ! supervisor_detach_dns; then
+            supervisor_release_cycle_lock
+            return 1
+        fi
+    fi
     supervisor_run_worker core || true
     supervisor_core_state=$(supervisor_state_value "$AGH_STATE_DIR/core.state" state || printf 'unknown')
     supervisor_core_authorized=$(supervisor_state_value "$AGH_STATE_DIR/core.state" firewall_authorized || printf '0')
@@ -210,6 +247,37 @@ supervisor_once() {
     supervisor_release_cycle_lock
 }
 
+supervisor_wait_cycle_lock() {
+    supervisor_stop_wait=0
+    until supervisor_acquire_cycle_lock; do
+        [ "$supervisor_stop_wait" -lt "${SUPERVISOR_STOP_WAIT:-70}" ] || return 1
+        sleep 1
+        supervisor_stop_wait=$((supervisor_stop_wait + 1))
+    done
+}
+
+supervisor_suspend_core() {
+    ensure_dirs || return 1
+    supervisor_wait_cycle_lock || return 1
+    supervisor_suspend_rc=1
+    if supervisor_detach_dns; then
+        supervisor_run_worker core stop
+        supervisor_suspend_rc=$?
+    fi
+    supervisor_release_cycle_lock
+    return "$supervisor_suspend_rc"
+}
+
+supervisor_stop() {
+    ensure_dirs || return 1
+    : > "$AGH_RUN_DIR/stop" || return 1
+    supervisor_wait_cycle_lock || return 1
+    supervisor_stop_components
+    supervisor_stop_rc=$?
+    supervisor_release_cycle_lock
+    return "$supervisor_stop_rc"
+}
+
 supervisor_daemon_cleanup() {
     supervisor_pid_file="$AGH_RUN_DIR/supervisor.pid"
     if [ -f "$supervisor_pid_file" ] && [ "$(sed -n '1p' "$supervisor_pid_file")" = "$$" ]; then
@@ -233,17 +301,16 @@ supervisor_daemon() {
     trap 'supervisor_daemon_cleanup; exit 0' INT TERM
     while [ ! -f "$AGH_RUN_DIR/stop" ]; do
         supervisor_once || log_message supervisor 'supervisor cycle failed'
+        [ ! -f "$AGH_RUN_DIR/stop" ] || break
         sleep "${SUPERVISOR_INTERVAL:-10}"
     done
-    supervisor_request core stop
-    supervisor_request firewall remove
-    supervisor_request proxy stop
-    supervisor_request file stop
+    supervisor_stop
 }
 
 case "${1:-daemon}" in
     once|boot-completed) supervisor_once ;;
     daemon) supervisor_daemon ;;
-    stop) : > "$AGH_RUN_DIR/stop"; supervisor_request core stop; supervisor_request firewall remove; supervisor_request proxy stop; supervisor_request file stop ;;
-    *) printf 'usage: %s {once|daemon|stop}\n' "$0" >&2; exit 2 ;;
+    suspend-core) supervisor_suspend_core ;;
+    stop) supervisor_stop ;;
+    *) printf 'usage: %s {once|daemon|stop|suspend-core}\n' "$0" >&2; exit 2 ;;
 esac

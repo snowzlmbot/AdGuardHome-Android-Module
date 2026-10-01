@@ -287,6 +287,15 @@ core_start() {
     core_state_write ready ready
 }
 
+core_check_ready() {
+    [ -f "$AGH_RUN_DIR/core.pid" ] && [ -f "$AGH_STATE_DIR/ports.conf" ] || return 1
+    CORE_PID=$(sed -n '1p' "$AGH_RUN_DIR/core.pid")
+    PORT_WEB=$(sed -n 's/^web_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
+    PORT_DNS=$(sed -n 's/^dns_port=//p' "$AGH_STATE_DIR/ports.conf" | sed -n '1p')
+    valid_port "$PORT_WEB" && valid_port "$PORT_DNS" || return 1
+    core_pid_is_ours && core_probe_port "$PORT_WEB" && core_probe_port "$PORT_DNS"
+}
+
 core_once() {
     ensure_dirs || return 1
     if [ -f "$AGH_STATE_DIR/core.disabled" ]; then
@@ -327,8 +336,9 @@ core_daemon() {
 }
 
 case "${1:-once}" in
+    check-ready) core_check_ready ;;
     once) core_once ;;
     daemon) core_daemon ;;
     stop) core_stop ;;
-    *) printf 'usage: %s {once|daemon|stop}\n' "$0" >&2; exit 2 ;;
+    *) printf 'usage: %s {once|daemon|stop|check-ready}\n' "$0" >&2; exit 2 ;;
 esac

@@ -33,7 +33,12 @@ class BootRegression(unittest.TestCase):
             (self.root / ("config/" + name + "-adapter.conf")).write_text("enabled=false\n")
         for name in ("core", "network", "firewall"):
             script = self.workers / (name + "-worker.sh")
-            script.write_text("#!/bin/sh\nprintf 'state=ready\\nfirewall_authorized=1\\n' > \"$AGH_STATE_DIR/" + name + ".state\"\n")
+            script.write_text("#!/bin/sh\n"
+                              "state=ready\n"
+                              "[ \"$1\" != stop ] || state=stopped\n"
+                              "if [ -f \"$AGH_RUN_DIR/firewall/request\" ] && [ \"" + name + "\" = firewall ]; then\n"
+                              "  state=removed; rm -f \"$AGH_RUN_DIR/firewall/request\"\nfi\n"
+                              "printf 'state=%s\\nfirewall_authorized=1\\n' \"$state\" > \"$AGH_STATE_DIR/" + name + ".state\"\n")
             script.chmod(0o755)
 
     def run_once(self):

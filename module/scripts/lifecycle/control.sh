@@ -81,7 +81,10 @@ control_set_mode() {
     control_was_disabled=false
     [ -f "$AGH_STATE_DIR/core.disabled" ] && control_was_disabled=true
     : > "$AGH_STATE_DIR/core.disabled"
-    agh_run_script "$SCRIPT_DIR/../core/core-worker.sh" stop >/dev/null 2>&1 || true
+    if ! agh_run_script "$SCRIPT_DIR/supervisor.sh" suspend-core; then
+        [ "$control_was_disabled" = true ] || rm -f "$AGH_STATE_DIR/core.disabled"
+        return 1
+    fi
     if ! agh_apply_mode "$control_mode" "$control_yaml" "$control_mode_file" || ! "$control_binary" --config "$control_yaml" --work-dir "$AGH_DATA_DIR" --check-config >/dev/null 2>&1; then
         atomic_copy "$control_yaml_backup" "$control_yaml" || true
         atomic_copy "$control_mode_backup" "$control_mode_file" || true

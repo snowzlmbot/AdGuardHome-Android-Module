@@ -31,6 +31,7 @@ done
 "$ROOT/tests/static/check-shell.sh" "$ROOT"
 python3 "$ROOT/tests/dns_filter_regression.py"
 python3 "$ROOT/tests/boot_regression_test.py"
+python3 "$ROOT/tests/lifecycle_dns_safety_test.py"
 
 for required in module/module.prop module/customize.sh module/service.sh module/action.sh module/uninstall.sh module/boot-completed.sh module/webroot/index.html; do
     if [ ! -f "$ROOT/$required" ]; then
