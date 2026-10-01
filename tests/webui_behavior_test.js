@@ -13,7 +13,7 @@ function element(id) {
 const vpn = element('vpn'); vpn.dataset.policy = 'bypass_vpn_traffic';
 const commands=[];
 let state={language:'zh', status:'degraded', core:'ready', network:'ready', firewall:'bypassed',
-  vpn:'true', vpn_passthrough:'true', firewall_reason:'vpn_passthrough',
+  vpn:'true', vpn_passthrough:'true', bypass_vpn_traffic:'true', firewall_reason:'vpn_passthrough',
   file_enabled:'false', proxy_enabled:'false', file_rules_state:'ready', web_url:'http://127.0.0.1:3000'};
 const window={ksu:{exec(command, _, callback){
   commands.push(command);
@@ -32,6 +32,10 @@ const context=vm.createContext({window, document:{getElementById:element, docume
   vm.runInContext(script,context);
   await vm.runInContext('refresh()',context);
   assert.equal(vpn.dataset.enabled,'true','enabled VPN must render enabled');
+  const aliasOnly={...state}; delete aliasOnly.bypass_vpn_traffic;
+  state=aliasOnly;
+  await vm.runInContext('refresh()',context);
+  assert.equal(vpn.dataset.enabled,'true','legacy diagnostic alias also works');
   assert.ok(!element('firewall').textContent.startsWith('status.'),'bypass status must be localized');
   await vpn.click();
   assert.ok(commands.some(x=>x.endsWith('set-policy bypass_vpn_traffic false')),'click must DISABLE VPN bypass');

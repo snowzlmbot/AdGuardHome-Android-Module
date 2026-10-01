@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.19
+
+- Fix the VPN switch state-key mismatch and clear every VPN DNS exemption when disabled.
+- Pin compatible cloud rules and migrate the old default URL without replacing custom sources.
+- Separate cloud download from file cleanup and expose phase-specific errors.
+- Replace optional flock with a portable PID/start-time cycle lock.
+
 ## 0.1.18
 
 - Remove and verify module-owned DNS redirection before restarting, disabling, recovering, or changing the core mode; do not stop the listener when rule removal fails.

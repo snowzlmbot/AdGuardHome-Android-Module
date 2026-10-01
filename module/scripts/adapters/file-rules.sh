@@ -6,6 +6,8 @@ MODDIR=${MODDIR:-${MODULE_SCRIPTS_DIR%/*}}
 export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/common.sh"
 . "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
+. "$MODULE_SCRIPTS_DIR/lib/lock.sh"
+. "$MODULE_SCRIPTS_DIR/lib/config.sh"
 . "$MODULE_SCRIPTS_DIR/lib/log.sh"
 . "$SCRIPT_DIR/backup.sh"
 
@@ -19,11 +21,11 @@ file_rules_config_value() {
 }
 
 file_rules_default_url() {
-    printf '%s\n' 'https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf'
+    read_key_value rules_url "$MODDIR/config/file-rules-source.conf"
 }
 
 file_rules_default_sha_url() {
-    printf '%s\n' 'https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf.sha256'
+    read_key_value rules_sha256_url "$MODDIR/config/file-rules-source.conf"
 }
 
 file_rules_url_safe() {
@@ -83,16 +85,23 @@ file_rules_set_config_value() {
 }
 
 file_rules_download() {
-    file_rules_url=$1
-    file_rules_destination=$2
+    file_rules_download_url=$1
+    file_rules_download_dest=$2
+    file_rules_download_tmp="$file_rules_download_dest.part.$$"
+    rm -f "$file_rules_download_tmp"
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --retry 2 --connect-timeout 8 --max-time 90 "$file_rules_url" -o "$file_rules_destination"
+        curl -fL --retry 3 --connect-timeout 10 --max-time 120 --silent --show-error "$file_rules_download_url" -o "$file_rules_download_tmp" || { rm -f "$file_rules_download_tmp"; return 1; }
     elif command -v wget >/dev/null 2>&1; then
-        wget -q -O "$file_rules_destination" "$file_rules_url"
+        wget -qO "$file_rules_download_tmp" --timeout=120 "$file_rules_download_url" || { rm -f "$file_rules_download_tmp"; return 1; }
     else
+        rm -f "$file_rules_download_tmp"
         return 1
     fi
+    [ -s "$file_rules_download_tmp" ] || { rm -f "$file_rules_download_tmp"; return 1; }
+    [ "$(wc -c < "$file_rules_download_tmp")" -le "$FILE_RULES_MAX_BYTES" ] || { rm -f "$file_rules_download_tmp"; return 1; }
+    agh_move "$file_rules_download_tmp" "$file_rules_download_dest"
 }
+
 
 file_rules_validate() {
     file_rules_file=$1
@@ -164,20 +173,24 @@ file_rules_set_url() {
     file_rules_state_write ready configured
 }
 
-file_rules_refresh() {
+file_rules_refresh_unlocked() {
     ensure_dirs || return 1
+    config_migrate_file_rule_source || return 1
     file_rules_url=$(file_rules_config_value rules_url)
     [ -n "$file_rules_url" ] || file_rules_url=$(file_rules_default_url)
+    file_rules_url=$(file_rules_normalize_url "$file_rules_url") || { file_rules_state_write failed invalid_url; return 1; }
     file_rules_sha_url=$(file_rules_config_value rules_sha256_url)
-    [ -n "$file_rules_sha_url" ] || file_rules_sha_url=$(file_rules_default_sha_url)
+    [ -n "$file_rules_sha_url" ] || file_rules_sha_url="$file_rules_url.sha256"
+    file_rules_sha_url=$(file_rules_normalize_url "$file_rules_sha_url") || { file_rules_state_write failed invalid_checksum_url; return 1; }
     FILE_RULES_URL=$file_rules_url
     FILE_RULES_SHA_URL=$file_rules_sha_url
     FILE_RULES_VIEW_URL=$(file_rules_config_value rules_view_url)
     [ -n "$FILE_RULES_VIEW_URL" ] || FILE_RULES_VIEW_URL=$(file_rules_view_url "$file_rules_url")
     file_rules_tmp="$AGH_CONFIG_DIR/.file-ad-targets.conf.$$"
     file_rules_sha_tmp="$AGH_CONFIG_DIR/.file-ad-targets.conf.sha256.$$"
-    file_rules_download "$file_rules_url" "$file_rules_tmp" || { rm -f "$file_rules_tmp" "$file_rules_sha_tmp"; file_rules_state_write failed download; return 1; }
-    file_rules_download "$file_rules_sha_url" "$file_rules_sha_tmp" || { rm -f "$file_rules_tmp" "$file_rules_sha_tmp"; file_rules_state_write failed checksum_download; return 1; }
+    log_rotate_file "$AGH_LOG_DIR/file-rules-worker.log"
+    file_rules_download "$file_rules_url" "$file_rules_tmp" 2>>"$AGH_LOG_DIR/file-rules-worker.log" || { rm -f "$file_rules_tmp" "$file_rules_sha_tmp"; file_rules_state_write failed download; log_message file_rules 'phase=download failed'; return 1; }
+    file_rules_download "$file_rules_sha_url" "$file_rules_sha_tmp" 2>>"$AGH_LOG_DIR/file-rules-worker.log" || { rm -f "$file_rules_tmp" "$file_rules_sha_tmp"; file_rules_state_write failed checksum_download; log_message file_rules 'phase=checksum_download failed'; return 1; }
     file_rules_validate "$file_rules_tmp" || { rm -f "$file_rules_tmp" "$file_rules_sha_tmp"; file_rules_state_write failed validation; return 1; }
     FILE_RULES_SHA256=$(sha256sum "$file_rules_tmp" 2>/dev/null | cut -d ' ' -f1)
     FILE_RULES_EXPECTED=$(sed -n '1{s/[[:space:]].*//;p;}' "$file_rules_sha_tmp")
@@ -194,6 +207,15 @@ file_rules_refresh() {
     file_rules_state_write ready updated
     log_message file_rules "updated maintainer file-ad rules"
 }
+
+file_rules_refresh() (
+    ensure_dirs || return 1
+    file_no_symlink_ancestors "$AGH_RUN_DIR/file-rules.lock.d" || return 1
+    agh_lock_acquire "$AGH_RUN_DIR/file-rules.lock.d" 0 || { printf 'rules_refresh_failed:busy\n' >&2; return 1; }
+    trap agh_lock_release EXIT
+    trap 'agh_lock_release; exit 1' INT TERM
+    file_rules_refresh_unlocked
+)
 
 file_rules_status() {
     if [ -f "$FILE_RULES_STATE" ]; then

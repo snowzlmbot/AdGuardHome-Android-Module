@@ -58,6 +58,21 @@ control_set_policy() {
     control_policy_file="$AGH_CONFIG_DIR/mode.conf"
     [ -f "$control_policy_file" ] || return 1
     control_policy_tmp="$control_policy_file.tmp.$$"
+    if [ "$control_policy_key" = bypass_vpn_traffic ]; then
+        awk -F= -v value="$control_policy_value" '
+            $1 == "bypass_vpn_traffic" || $1 == "bypass_vpn_dns" || $1 == "bypass_vpn_encrypted_dns" { next }
+            { print }
+            END {
+                print "bypass_vpn_traffic=" value
+                print "bypass_vpn_dns=" value
+                print "bypass_vpn_encrypted_dns=" value
+            }
+        ' "$control_policy_file" > "$control_policy_tmp" || return 1
+        chmod 0600 "$control_policy_tmp" || return 1
+        agh_move "$control_policy_tmp" "$control_policy_file" || return 1
+        [ "$(read_key_value bypass_vpn_traffic "$control_policy_file")" = "$control_policy_value" ]
+        return $?
+    fi
     if grep -q "^${control_policy_key}=" "$control_policy_file"; then
         sed "s#^${control_policy_key}=.*#${control_policy_key}=${control_policy_value}#" "$control_policy_file" > "$control_policy_tmp"
     else
@@ -118,13 +133,17 @@ case "$control_command" in
     file-rules-status) agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" status ;;
     file-rules-set-url) agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" set-url "$control_argument" "$control_value" "$control_extra" ;;
     file-rules-refresh)
-        agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" refresh || exit 1
-        FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
-        control_sync_supervisor || exit 1
-        printf 'request=file-rules-refresh\npackage=%s\n' "${control_argument:-all}"
+        if ! agh_run_script "$SCRIPT_DIR/../adapters/file-rules.sh" refresh; then
+            printf 'rules_refresh_failed:%s\n' "$(read_key_value reason "$AGH_STATE_DIR/file-rules.state")" >&2
+            exit 1
+        fi
+        printf 'request=file-rules-refresh\nrules_refresh=ready\n'
         ;;
     file-apply)
-        FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument" || exit 1
+        if ! FILE_FORCE_ONCE=1 agh_run_script "$SCRIPT_DIR/../adapters/file-worker.sh" once "$control_argument"; then
+            printf 'file_cleanup_failed:%s\n' "$(read_key_value reason "$AGH_STATE_DIR/file.state")" >&2
+            exit 1
+        fi
         control_sync_supervisor || exit 1
         printf 'request=file-apply\npackage=%s\n' "${control_argument:-all}"
         ;;

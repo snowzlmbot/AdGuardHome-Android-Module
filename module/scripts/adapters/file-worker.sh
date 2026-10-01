@@ -6,6 +6,7 @@ MODDIR=${MODDIR:-${MODULE_SCRIPTS_DIR%/*}}
 export MODDIR
 . "$MODULE_SCRIPTS_DIR/lib/common.sh"
 . "$MODULE_SCRIPTS_DIR/lib/atomic.sh"
+. "$MODULE_SCRIPTS_DIR/lib/lock.sh"
 . "$MODULE_SCRIPTS_DIR/lib/log.sh"
 . "$SCRIPT_DIR/backup.sh"
 
@@ -418,12 +419,15 @@ umask 077
 ensure_dirs || exit 1
 file_no_symlink_ancestors "$AGH_BACKUP_DIR/file/manifest.tsv" || { file_state_write failed unsafe_backup; exit 1; }
 mkdir -p "$AGH_BACKUP_DIR/file" && agh_chmod 0700 "$AGH_BACKUP_DIR/file" || exit 1
-# Serialize lifecycle/UI actions. Kernel locks release on exit/kill/reboot and
-# are held only for one cycle, not the daemon's sleep. Missing flock fails closed.
+# Serialize one root-private cycle using PID/start-time ownership; recover
+# stale locks after reboot and keep the lock out of app-writable directories.
 file_locked() (
-    file_no_symlink_ancestors "$AGH_RUN_DIR/file-adapter.lock" || return 1
-    exec 9> "$AGH_RUN_DIR/file-adapter.lock" || return 1
-    flock -n 9 || return 1
+    file_no_symlink_ancestors "$AGH_RUN_DIR/file-adapter.lock.d" || return 1
+    file_lock_wait=0
+    [ "${FILE_FORCE_ONCE:-0}" != 1 ] || file_lock_wait=10
+    agh_lock_acquire "$AGH_RUN_DIR/file-adapter.lock.d" "$file_lock_wait" || { printf 'file_cleanup_failed:busy\n' >&2; return 1; }
+    trap agh_lock_release EXIT
+    trap 'agh_lock_release; exit 1' INT TERM
     file_data_root_init || { file_state_write failed unsafe_data_root; return 1; }
     "$@"
 )

@@ -20,6 +20,28 @@ install_runtime_defaults() {
         fi
     done
     chmod 0600 "$AGH_CONFIG_DIR/mode.conf"
+    config_migrate_file_rule_source
+}
+
+config_migrate_file_rule_source() {
+    config_rules_file="$AGH_CONFIG_DIR/file-adapter.conf"
+    [ -f "$config_rules_file" ] || return 0
+    config_rules_legacy='https://raw.githubusercontent.com/snowzlmbot/AdGuardHome-Android-Module/main/module/targets/file-ad-targets.conf'
+    [ "$(read_key_value rules_url "$config_rules_file")" = "$config_rules_legacy" ] || return 0
+    config_rules_sha=$(read_key_value rules_sha256_url "$config_rules_file")
+    case "$config_rules_sha" in ''|"$config_rules_legacy.sha256") ;; *) return 0 ;; esac
+    config_rules_source="$MODDIR/config/file-rules-source.conf"
+    config_rules_url=$(read_key_value rules_url "$config_rules_source")
+    config_rules_checksum=$(read_key_value rules_sha256_url "$config_rules_source")
+    [ -n "$config_rules_url" ] && [ -n "$config_rules_checksum" ] || return 1
+    config_rules_tmp="$config_rules_file.source.$$"
+    awk -F= -v url="$config_rules_url" -v sha="$config_rules_checksum" '
+        $1 == "rules_url" || $1 == "rules_sha256_url" || $1 == "rules_view_url" { next }
+        { print }
+        END { print "rules_url=" url; print "rules_sha256_url=" sha }
+    ' "$config_rules_file" > "$config_rules_tmp" || return 1
+    chmod 0600 "$config_rules_tmp" || return 1
+    agh_move "$config_rules_tmp" "$config_rules_file"
 }
 
 config_value() {

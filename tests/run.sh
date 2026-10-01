@@ -32,6 +32,9 @@ done
 python3 "$ROOT/tests/dns_filter_regression.py"
 python3 "$ROOT/tests/boot_regression_test.py"
 python3 "$ROOT/tests/lifecycle_dns_safety_test.py"
+node "$ROOT/tests/webui_behavior_test.js"
+python3 "$ROOT/tests/vpn_policy_test.py"
+python3 "$ROOT/tests/cloud_rules_live_test.py"
 
 for required in module/module.prop module/customize.sh module/service.sh module/action.sh module/uninstall.sh module/boot-completed.sh module/webroot/index.html; do
     if [ ! -f "$ROOT/$required" ]; then

@@ -11,6 +11,11 @@ if [ "${FILE_ADAPTER_TEST_SHELL:-}" = busybox ]; then
     export PATH
 fi
 trap 'rm -rf "$fixture"' EXIT
+mkdir -p "$fixture/no-flock"
+printf '#!/bin/sh\nexit 127\n' > "$fixture/no-flock/flock"
+chmod 0755 "$fixture/no-flock/flock"
+PATH="$fixture/no-flock:$PATH"
+export PATH
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 export MODDIR="$ROOT/module"
 # Only a filesystem fixture: manifests still contain real Android paths.
@@ -237,11 +242,12 @@ reset_fixture
 rule "$ad_rule"
 ad="$AGH_FILE_DATA_ROOT/user/0/com.anjuke.android.app/cache/splash_ad"
 mkdir -p "$ad"; printf 'keep-locked\n' > "$ad/image"
-exec 8> "$AGH_RUN_DIR/file-adapter.lock"
-flock -n 8 || fail 'lock test setup failed'
+mkdir -p "$AGH_RUN_DIR/file-adapter.lock.d"
+lock_birth=$(sed 's/.*) //' "/proc/$$/stat" | awk '{print $20}')
+printf '%s:%s\n' "$$" "$lock_birth" > "$AGH_RUN_DIR/file-adapter.lock.d/owner"
 if run once; then fail 'concurrent adapter action ignored lock'; fi
 [ -s "$ad/image" ] || fail 'locked action modified target'
-flock -u 8
-exec 8>&-
+rm "$AGH_RUN_DIR/file-adapter.lock.d/owner"
+rmdir "$AGH_RUN_DIR/file-adapter.lock.d"
 
 printf '%s\n' 'file adapter tests passed'
