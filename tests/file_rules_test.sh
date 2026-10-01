@@ -82,5 +82,5 @@ export FAKE_FETCH_DNS_TRACE="$fixture/dns-trace"
 export FAKE_RULES="$ROOT/module/targets/file-ad-targets.conf"
 export FAKE_SHA="$ROOT/module/targets/file-ad-targets.conf.sha256"
 AGH_FETCH_BIN="$fixture/fetch-helper" sh "$ROOT/module/scripts/adapters/file-rules.sh" refresh || fail 'static resolver fallback failed'
-grep -F '192.0.2.53:53,[fe80::1%wlan0]:53' "$fixture/dns-trace" >/dev/null || fail 'scoped discovered DNS was not passed to helper'
+grep -F '192.0.2.53:53,[fe80::1%wlan0]:53' "$fixture/dns-trace" >/dev/null || { printf 'actual fetch DNS: %s\n' "$(cat "$fixture/dns-trace")"; fail 'scoped discovered DNS was not passed to helper'; }
 printf '%s\n' 'file rules tests passed'

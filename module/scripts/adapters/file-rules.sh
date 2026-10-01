@@ -90,7 +90,8 @@ file_rules_fetch_dns() {
     file_dns6=$(read_key_value dns6 "$AGH_STATE_DIR/network.state")
     file_dns_oldifs=$IFS
     IFS=,
-    for file_dns_address in $file_dns4,$file_dns6; do
+    file_dns_addresses="$file_dns4,$file_dns6"
+    for file_dns_address in $file_dns_addresses; do
         case "$file_dns_address" in
             ''|127.*|::1) continue ;;
             *[!0-9a-fA-F:.%A-Za-z_-]*) continue ;;
