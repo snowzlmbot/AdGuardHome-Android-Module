@@ -19,6 +19,11 @@ jobs:
           python3 tests/dns_filter_regression.py
           python3 tests/boot_regression_test.py
           python3 tests/lifecycle_dns_safety_test.py
+      - name: Run VPN and cloud-rule behavior regressions
+        run: |
+          node tests/webui_behavior_test.js
+          python3 tests/vpn_policy_test.py
+          python3 tests/cloud_rules_live_test.py
       - name: Run fixture tests
         shell: sh
         run: |
