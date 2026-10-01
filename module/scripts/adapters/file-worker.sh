@@ -385,7 +385,18 @@ file_once() {
     fi
     file_manifest_resolve
     [ -f "$FILE_MANIFEST_PATH" ] || { file_state_write failed missing_manifest; return 1; }
-    sh "$SCRIPT_DIR/file-rules.sh" validate "$FILE_MANIFEST_PATH" || { file_state_write failed invalid_manifest; return 1; }
+    if ! agh_run_script "$SCRIPT_DIR/file-rules.sh" validate "$FILE_MANIFEST_PATH"; then
+        # Recover only our old downloaded cache, never an explicit custom path.
+        [ "$FILE_MANIFEST_PATH" = "$AGH_CONFIG_DIR/file-ad-targets.conf" ] &&
+        [ "$(file_config_value target_manifest)" = targets/file-ad-targets.conf ] || { file_state_write failed invalid_manifest; return 1; }
+        agh_run_script "$SCRIPT_DIR/file-rules.sh" validate "$MODDIR/targets/file-ad-targets.conf" || { file_state_write failed invalid_baseline; return 1; }
+        file_rule_quarantine="$AGH_BACKUP_DIR/file/rules"
+        mkdir -p "$file_rule_quarantine" || return 1
+        atomic_copy "$FILE_MANIFEST_PATH" "$file_rule_quarantine/rejected-cache-$(date '+%Y%m%d-%H%M%S').$$.conf" || return 1
+        atomic_copy "$MODDIR/targets/file-ad-targets.conf" "$FILE_MANIFEST_PATH" || return 1
+        FILE_RULES_STATE=baseline
+        log_message file 'invalid downloaded cache quarantined; using verified bundled manifest'
+    fi
     mkdir -p "$AGH_BACKUP_DIR/file" || return 1
     file_manifest_compact "$AGH_BACKUP_DIR/file/manifest.tsv" || return 1
     file_warning=0

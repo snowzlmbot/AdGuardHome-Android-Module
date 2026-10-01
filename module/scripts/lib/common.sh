@@ -1,19 +1,33 @@
 #!/system/bin/sh
 
-# Make worker commands independent of the Root manager's launch shell.
-if [ "${AGH_COMMAND_ENV_READY:-0}" != 1 ]; then
+# Select a working manager-provided static BusyBox, not merely its directory.
+# ASH_STANDALONE has no effect in Android mksh; each executable must enter ash.
+if [ -z "${AGH_BUSYBOX:-}" ] || ! [ -x "$AGH_BUSYBOX" ]; then
     AGH_BUSYBOX=
-    for agh_busybox in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do
-        if [ -x "$agh_busybox" ]; then AGH_BUSYBOX=$agh_busybox; break; fi
+    for agh_candidate in /data/adb/ksu/bin/busybox /data/adb/magisk/busybox /data/adb/ap/bin/busybox; do
+        if [ -x "$agh_candidate" ] && "$agh_candidate" true 2>/dev/null; then AGH_BUSYBOX=$agh_candidate; break; fi
     done
-    if [ -n "$AGH_BUSYBOX" ]; then
-        PATH="${AGH_BUSYBOX%/*}:$PATH"
-        ASH_STANDALONE=1
-        export PATH ASH_STANDALONE AGH_BUSYBOX
-    fi
-    AGH_COMMAND_ENV_READY=1
-    export AGH_COMMAND_ENV_READY
 fi
+if [ -n "$AGH_BUSYBOX" ]; then
+    export AGH_BUSYBOX
+    ASH_STANDALONE=1
+    export ASH_STANDALONE
+    # Re-enter only file-backed entrypoints, never a manager's sourced installer.
+    if [ "${AGH_NO_REEXEC:-0}" != 1 ] && [ "${AGH_REEXEC_PID:-}" != "$$" ]; then
+        case "$0" in
+            *.sh)
+                if [ -f "$0" ]; then
+                    AGH_REEXEC_PID=$$
+                    export AGH_REEXEC_PID
+                    unset LD_LIBRARY_PATH LD_PRELOAD
+                    exec "$AGH_BUSYBOX" sh "$0" "$@"
+                fi
+                ;;
+        esac
+    fi
+fi
+AGH_COMMAND_ENV_READY=1
+export AGH_COMMAND_ENV_READY
 
 MODDIR=${MODDIR:-${0%/*}}
 AGH_ROOT=${AGH_ROOT:-/data/adb/agh}
@@ -25,71 +39,39 @@ AGH_BACKUP_DIR=${AGH_BACKUP_DIR:-$AGH_ROOT/backup}
 AGH_DATA_DIR=${AGH_DATA_DIR:-$AGH_ROOT/data}
 
 agh_run_script() {
-    if [ -n "${AGH_BUSYBOX:-}" ]; then
-        "$AGH_BUSYBOX" sh "$@"
-    else
-        sh "$@"
-    fi
+    if [ -n "${AGH_BUSYBOX:-}" ]; then "$AGH_BUSYBOX" sh "$@"; else sh "$@"; fi
 }
 
 ensure_dirs() {
-    mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH_LOG_DIR" "$AGH_BACKUP_DIR" "$AGH_DATA_DIR"
+    mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH_LOG_DIR" "$AGH_BACKUP_DIR" "$AGH_DATA_DIR" || return 1
+    agh_chmod 0700 "$AGH_ROOT" "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH_LOG_DIR" "$AGH_BACKUP_DIR" "$AGH_DATA_DIR"
 }
 
 is_nonempty_absolute_path() {
-    case "${1:-}" in
-        /*) [ "${1#/}" != "" ] && [ "${1%/}" != "" ] ;;
-        *) return 1 ;;
-    esac
+    case "${1:-}" in /*) [ "${1#/}" != "" ] && [ "${1%/}" != "" ] ;; *) return 1 ;; esac
 }
 
 safe_target_path() {
     target=${1:-}
     is_nonempty_absolute_path "$target" || return 1
-    case "$target" in
-        /|/data|/data/adb|/data/adb/agh|/data/adb/modules|/data/system) return 1 ;;
-        *..*) return 1 ;;
-    esac
-    return 0
+    case "$target" in /|/data|/data/adb|/data/adb/agh|/data/adb/modules|/data/system|*..*) return 1 ;; esac
 }
 
 read_key_value() {
     key=$1
     file=$2
-    if [ -f "$file" ]; then
-        sed -n "s/^${key}=//p" "$file" | sed -n '1p'
-    fi
+    if [ -f "$file" ]; then sed -n "s/^${key}=//p" "$file" | sed -n '1p'; fi
 }
 
-agh_printf() {
-    if command -v toybox >/dev/null 2>&1; then
-        toybox printf "$@"
-    else
-        printf "$@"
-    fi
-}
-
+# Never route builtins or filesystem applets through an unverified toybox.
+agh_printf() { printf "$@"; }
 agh_chmod() {
-    if command -v toybox >/dev/null 2>&1; then
-        toybox chmod "$@"
-    else
-        chmod "$@"
-    fi
+    if [ -n "${AGH_BUSYBOX:-}" ]; then "$AGH_BUSYBOX" chmod "$@"; else chmod "$@"; fi
 }
-
 agh_sync() {
-    if command -v toybox >/dev/null 2>&1; then
-        toybox sync >/dev/null 2>&1 || true
-    fi
+    if [ -n "${AGH_BUSYBOX:-}" ]; then "$AGH_BUSYBOX" sync >/dev/null 2>&1 || true; fi
 }
-
 agh_move() {
     [ "$#" -eq 2 ] || return 2
-    if command -v toybox >/dev/null 2>&1 && toybox mv -f "$1" "$2" >/dev/null 2>&1; then
-        return 0
-    fi
-    if mv -f "$1" "$2" >/dev/null 2>&1; then
-        return 0
-    fi
-    cp -f "$1" "$2" >/dev/null 2>&1 && rm -f "$1"
+    if [ -n "${AGH_BUSYBOX:-}" ]; then "$AGH_BUSYBOX" mv -f "$1" "$2"; else mv -f "$1" "$2"; fi
 }

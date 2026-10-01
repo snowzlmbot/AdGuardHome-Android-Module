@@ -84,6 +84,30 @@ file_rules_set_config_value() {
     agh_move "$file_rules_set_tmp" "$AGH_CONFIG_DIR/file-adapter.conf"
 }
 
+file_rules_fetch_dns() {
+    [ -z "${AGH_FETCH_DNS:-}" ] || return 0
+    file_dns4=$(read_key_value dns4 "$AGH_STATE_DIR/network.state")
+    file_dns6=$(read_key_value dns6 "$AGH_STATE_DIR/network.state")
+    file_dns_oldifs=$IFS
+    IFS=,
+    for file_dns_address in $file_dns4,$file_dns6; do
+        case "$file_dns_address" in
+            ''|127.*|::1) continue ;;
+            *[!0-9a-fA-F:.%A-Za-z_-]*) continue ;;
+        esac
+        case "$file_dns_address" in
+            *:*) file_dns_endpoint="[$file_dns_address]:53" ;;
+            *.*.*.*) file_dns_endpoint="$file_dns_address:53" ;;
+            *) continue ;;
+        esac
+        AGH_FETCH_DNS=${AGH_FETCH_DNS:+$AGH_FETCH_DNS,}$file_dns_endpoint
+    done
+    IFS=$file_dns_oldifs
+    # The module's existing plain bootstrap profile, not hardcoded host IPs.
+    [ -n "$AGH_FETCH_DNS" ] || AGH_FETCH_DNS='223.5.5.5:53,119.29.29.29:53'
+    export AGH_FETCH_DNS
+}
+
 file_rules_download() {
     file_rules_download_url=$1
     file_rules_download_dest=$2
@@ -91,7 +115,11 @@ file_rules_download() {
     rm -f "$file_rules_download_tmp"
     file_rules_helper=${AGH_FETCH_BIN:-$AGH_ROOT/bin/agh-http-fetch}
     if [ -x "$file_rules_helper" ]; then
-        "$file_rules_helper" "$file_rules_download_url" "$file_rules_download_tmp" "$FILE_RULES_MAX_BYTES" || { rm -f "$file_rules_download_tmp"; return 1; }
+        if ! "$file_rules_helper" "$file_rules_download_url" "$file_rules_download_tmp" "$FILE_RULES_MAX_BYTES"; then
+            if [ -n "${AGH_FETCH_DNS:-}" ]; then rm -f "$file_rules_download_tmp"; return 1; fi
+            file_rules_fetch_dns
+            "$file_rules_helper" "$file_rules_download_url" "$file_rules_download_tmp" "$FILE_RULES_MAX_BYTES" || { rm -f "$file_rules_download_tmp"; return 1; }
+        fi
     elif command -v curl >/dev/null 2>&1; then
         curl -fL --retry 3 --connect-timeout 10 --max-time 120 --silent --show-error "$file_rules_download_url" -o "$file_rules_download_tmp" || { rm -f "$file_rules_download_tmp"; return 1; }
     elif command -v toybox >/dev/null 2>&1 && toybox wget --help >/dev/null 2>&1; then

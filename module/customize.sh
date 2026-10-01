@@ -26,7 +26,9 @@ unzip -o "$ZIPFILE" 'module.prop' 'customize.sh' 'service.sh' 'action.sh' 'boot-
     module_abort 'Installation failed; see the preceding error'
 }
 
+AGH_NO_REEXEC=1
 . "$MODPATH/scripts/lib/common.sh"
+unset AGH_NO_REEXEC
 . "$MODPATH/scripts/lib/atomic.sh"
 . "$MODPATH/scripts/lib/platform.sh"
 . "$MODPATH/scripts/lib/credentials.sh"
