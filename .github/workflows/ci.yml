@@ -24,6 +24,11 @@ jobs:
           node tests/webui_behavior_test.js
           python3 tests/vpn_policy_test.py
           python3 tests/cloud_rules_live_test.py
+      - name: Verify actual cloud download with BusyBox only
+        run: |
+          mkdir -p "$RUNNER_TEMP/rules-bin"
+          busybox --install -s "$RUNNER_TEMP/rules-bin"
+          PATH="$RUNNER_TEMP/rules-bin" /usr/bin/python3 tests/cloud_rules_live_test.py
       - name: Run fixture tests
         shell: sh
         run: |

@@ -250,4 +250,9 @@ if run once; then fail 'concurrent adapter action ignored lock'; fi
 rm "$AGH_RUN_DIR/file-adapter.lock.d/owner"
 rmdir "$AGH_RUN_DIR/file-adapter.lock.d"
 
+run once || fail 'stale-free lock recovery failed'
+mkdir -p "$AGH_RUN_DIR/file-adapter.lock.d"
+printf '99999999:1\n' > "$AGH_RUN_DIR/file-adapter.lock.d/owner"
+run once || fail 'stale lock blocked processing'
+[ ! -e "$AGH_RUN_DIR/file-adapter.lock.d" ] || fail 'completed action leaked lock'
 printf '%s\n' 'file adapter tests passed'
