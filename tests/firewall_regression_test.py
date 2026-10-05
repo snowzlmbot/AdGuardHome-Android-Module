@@ -129,6 +129,18 @@ class FirewallRegression(unittest.TestCase):
     def rules(self, family="v4"):
         return json.loads((self.base / (family + ".log.state")).read_text())
 
+    def filter_chain(self):
+        return self.rules()["filter"]["AGHADF4"]
+
+    def httpdns_targets(self, *lines):
+        (self.config / "httpdns-targets.conf").write_text("\n".join(lines) + "\n")
+
+    def httpdns_env(self, *uid_pairs):
+        rows = [f"{pkg} {uid} 0 /data/user/0/{pkg} default:targetSdkVersion=35 3003 0 0 1 @system\n"
+                for pkg, uid in uid_pairs]
+        (self.base / "packages.list").write_text("".join(rows))
+        return {"FW_PACKAGES_LIST": str(self.base / "packages.list")}
+
     def status(self):
         return dict(line.split("=", 1) for line in
                     (self.state / "firewall.state").read_text().splitlines())
@@ -586,6 +598,190 @@ class FirewallRegression(unittest.TestCase):
             filter_hook = next(i for i, line in enumerate(lines) if "-t filter -I OUTPUT" in line)
             nat_hook = next(i for i, line in enumerate(lines) if "-t nat -I OUTPUT" in line)
             self.assertLess(filter_hook, nat_hook)
+
+
+    def test_httpdns_disabled_publishes_no_rules_and_never_resolves_uids(self):
+        self.assert_success(self.run_worker(**self.httpdns_env()))
+        self.assertFalse(any("--reject-with" in rule for rule in self.filter_chain()))
+        self.assertEqual(self.status()["httpdns_block"], "false")
+        self.assertEqual(self.status()["httpdns_rules"], "0")
+        self.assertEqual(self.status()["httpdns_skipped"], "0")
+
+    def test_httpdns_rules_follow_doq_rules_in_filter_chain(self):
+        self.configure(block_app_httpdns="true", block_ipv4_dot="true", block_ipv4_doq="true")
+        self.httpdns_targets("com.coolapk.market|119.29.29.87|443",
+                             "com.coolapk.market|119.29.29.89|443")
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        rules = self.filter_chain()
+        expected = [["-p", "tcp", "-d", ip, "--dport", "443", "-m", "owner",
+                     "--uid-owner", "10123", "-j", "REJECT", "--reject-with", "tcp-reset"]
+                    for ip in ("119.29.29.87", "119.29.29.89")]
+        for rule in expected:
+            self.assertIn(rule, rules)
+        doq_indexes = [i for i, rule in enumerate(rules) if "-j" in rule
+                       and rule[rule.index("-j") + 1] == "DROP"]
+        self.assertTrue(doq_indexes, "no DoQ/DOT rules to order against")
+        httpdns_indexes = [i for i, rule in enumerate(rules) if "--reject-with" in rule]
+        self.assertEqual(httpdns_indexes, [i for i in range(len(rules)) if rules[i] in expected])
+        self.assertLess(max(doq_indexes), min(httpdns_indexes))
+        self.assertEqual(self.status()["httpdns_block"], "true")
+        self.assertEqual(self.status()["httpdns_rules"], "2")
+        self.assertEqual(self.status()["httpdns_skipped"], "0")
+        for ip in ("119.29.29.87", "119.29.29.89"):
+            self.assertEqual(self.packet(uid=10123, proto="tcp", dst=ip,
+                                         dport=443)["verdict"], "REJECT")
+            self.assertEqual(self.packet(uid=999999, proto="tcp", dst=ip,
+                                         dport=443)["verdict"], "ACCEPT")
+        self.assertEqual(self.packet(uid=10123, proto="udp", dst="119.29.29.87",
+                                     dport=443)["verdict"], "ACCEPT")
+
+    def test_httpdns_alone_publishes_chain_without_dns_redirect(self):
+        self.configure(block_app_httpdns="true", redirect_ipv4_dns="false",
+                       redirect_ipv6_dns="false")
+        self.httpdns_targets("com.coolapk.market|119.29.29.87|443")
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["v4_redirect"], "false")
+        self.assertEqual(self.status()["httpdns_block"], "true")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.29.29.87",
+                                     dport=443)["verdict"], "REJECT")
+
+    def test_httpdns_missing_package_skips_only_that_target(self):
+        self.configure(block_app_httpdns="true")
+        self.httpdns_targets("com.coolapk.market|119.29.29.87|443",
+                             "com.missing.app|119.28.28.87|443")
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        rules = self.filter_chain()
+        self.assertEqual(sum("--reject-with" in rule for rule in rules), 1)
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["httpdns_rules"], "1")
+        self.assertEqual(self.status()["httpdns_skipped"], "1")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.29.29.87",
+                                     dport=443)["verdict"], "REJECT")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.28.28.87",
+                                     dport=443)["verdict"], "ACCEPT")
+
+    def test_httpdns_root_uid_target_is_skipped(self):
+        self.configure(block_app_httpdns="true")
+        self.httpdns_targets("com.coolapk.market|119.29.29.87|443")
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 0))))
+        self.assertFalse(any("--reject-with" in rule for rule in self.filter_chain()))
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["httpdns_rules"], "0")
+        self.assertEqual(self.status()["httpdns_skipped"], "1")
+
+    def test_httpdns_invalid_target_lines_skip_without_rollback(self):
+        self.configure(block_app_httpdns="true")
+        self.httpdns_targets(
+            "# a comment line",
+            "",
+            "com.coolapk.market|119.29.29.87|443",
+            "com.coolapk.market|999.1.1.1|443",
+            "com.coolapk.market|119.29.29.99|0",
+            "com.coolapk.market|119.29.29.99|70000",
+            "com.coolapk.market|119.29.29.99|notaport",
+            "com.coolapk.market|2001:db8::1|443",
+            "com.coolapk.market|127.0.0.1|443",
+            "com.coolapk.market|0.0.0.0|443",
+            "com.coolapk.market|224.0.0.1|443",
+            "com.coolapk.market|255.255.255.255|443",
+            "com.coolapk.market|01.2.3.4|443",
+            "com.coolapk.market|119.29.29.99|0443",
+            "com.coolapk.market",
+            "com.coolapk.market|119.29.29.99|443|extra",
+        )
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        rules = self.filter_chain()
+        self.assertEqual(sum("--reject-with" in rule for rule in rules), 1)
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["v4_redirect"], "true")
+        self.assertEqual(self.status()["httpdns_rules"], "1")
+        self.assertEqual(self.status()["httpdns_skipped"], "13")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.29.29.87",
+                                     dport=443)["verdict"], "REJECT")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.29.29.99",
+                                     dport=443)["verdict"], "ACCEPT")
+
+    def test_httpdns_target_cap_limits_applied_rules(self):
+        self.configure(block_app_httpdns="true")
+        lines = [f"com.coolapk.market|119.28.{a}.{b}|443"
+                 for a in range(1, 3) for b in range(1, 256)][:70]
+        self.httpdns_targets(*lines)
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["httpdns_rules"], "64")
+        self.assertEqual(self.status()["httpdns_skipped"], "6")
+        self.assertEqual(sum("--reject-with" in rule for rule in self.filter_chain()), 64)
+
+    def test_httpdns_disable_enable_round_trip(self):
+        self.configure(block_app_httpdns="true")
+        self.httpdns_targets("com.coolapk.market|119.29.29.87|443")
+        env = self.httpdns_env(("com.coolapk.market", 10123))
+        self.assert_success(self.run_worker(**env))
+        self.assertEqual(self.status()["httpdns_block"], "true")
+        self.assertEqual(self.status()["httpdns_rules"], "1")
+        self.configure(block_app_httpdns="false")
+        self.assert_success(self.run_worker(**env))
+        self.assertFalse(any("--reject-with" in rule for rule in self.filter_chain()))
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["httpdns_block"], "false")
+        self.assertEqual(self.status()["httpdns_rules"], "0")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.29.29.87",
+                                     dport=443)["verdict"], "ACCEPT")
+        self.configure(block_app_httpdns="true")
+        self.assert_success(self.run_worker(**env))
+        self.assertEqual(self.status()["httpdns_block"], "true")
+        self.assertEqual(self.status()["httpdns_rules"], "1")
+        self.assertEqual(self.packet(uid=10123, proto="tcp", dst="119.29.29.87",
+                                     dport=443)["verdict"], "REJECT")
+
+    def test_httpdns_unchanged_ensure_has_no_live_mutations(self):
+        self.configure(block_app_httpdns="true", block_ipv4_dot="true", block_ipv4_doq="true")
+        self.httpdns_targets("com.coolapk.market|119.29.29.87|443",
+                             "com.coolapk.market|119.29.29.89|443")
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        # Simulate kernel -S spelling: full host masks on -d and a -m proto
+        # match after -p, as the existing unchanged-ensure regression does.
+        for family in ("v4", "v6"):
+            rules = self.rules(family)
+            for chains in rules.values():
+                for chain, items in chains.items():
+                    if not chain.startswith("AGHAD"):
+                        continue
+                    for rule in items:
+                        if "-d" in rule:
+                            index = rule.index("-d") + 1
+                            value = rule[index]
+                            if "/" not in value:
+                                rule[index] = value + "/32" if ":" not in value else value + "/128"
+                        if "-p" in rule:
+                            rule.extend(["-m", rule[rule.index("-p") + 1]])
+            (self.base / (family + ".log.state")).write_text(json.dumps(rules))
+        before = {family: self.rules(family) for family in ("v4", "v6")}
+        snapshots = {family: self.base / (family + ".httpdns-snapshots") for family in before}
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123)),
+                                            IPTABLES_SNAPSHOT_FILE=str(snapshots["v4"]),
+                                            IP6TABLES_SNAPSHOT_FILE=str(snapshots["v6"])))
+        for family in before:
+            self.assertEqual(self.rules(family), before[family])
+            for line in snapshots[family].read_text().splitlines():
+                args = json.loads(line)["args"]
+                self.assertFalse(set(args) & {"-N", "-A", "-I", "-D", "-F", "-X"}, args)
+        self.assertEqual(self.status()["state"], "ready")
+        self.assertEqual(self.status()["httpdns_block"], "true")
+        self.assertEqual(self.status()["httpdns_rules"], "2")
+
+    def test_shipped_httpdns_targets_manifest_all_apply(self):
+        self.configure(block_app_httpdns="true")
+        (self.config / "httpdns-targets.conf").write_text(
+            (ROOT / "module/config/httpdns-targets.conf").read_text())
+        self.assert_success(self.run_worker(**self.httpdns_env(("com.coolapk.market", 10123))))
+        self.assertEqual(self.status()["httpdns_block"], "true")
+        self.assertEqual(self.status()["httpdns_rules"], "4")
+        self.assertEqual(self.status()["httpdns_skipped"], "0")
+        for ip in ("119.29.29.87", "119.29.29.89", "119.29.29.91", "119.28.28.87"):
+            self.assertEqual(self.packet(uid=10123, proto="tcp", dst=ip,
+                                         dport=443)["verdict"], "REJECT")
 
 
 if __name__ == "__main__":

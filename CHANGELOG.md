@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.22 (candidate)
+
+- Add opt-in per-app HTTPDNS endpoint blocking (`block_app_httpdns` in mode.conf) that stops apps from bypassing ordinary DNS filtering through HTTPDNS over TLS/443, using precise `tcp-reset` REJECT rules scoped to the app UID. Ships with Coolapk endpoints measured on a Xiaomi 14 Ultra.
+- Unchanged HTTPDNS rules reuse the existing journaled verify/rebuild path: no destructive refresh, exact rollback, and foreign rules stay untouched.
+- Limits: IPv4 only; endpoints come from a static list (`/data/adb/agh/config/httpdns-targets.conf`, editable) that can go stale with app updates; blocking must be enabled in mode.conf; at most 64 targets are applied and invalid/unresolvable lines are skipped and logged, never failing the firewall.
+
 ## 0.1.21 (candidate)
 
 - Fix false VPN detection from inactive system tunnels and Android VPN subscriptions; choose the active default network instead of stale agents and requests.

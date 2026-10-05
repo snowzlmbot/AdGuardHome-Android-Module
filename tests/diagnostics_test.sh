@@ -15,7 +15,7 @@ export AGH_DATA_DIR="$AGH_ROOT/data"
 export AGH_BACKUP_DIR="$AGH_ROOT/backup"
 mkdir -p "$AGH_CONFIG_DIR" "$AGH_STATE_DIR" "$AGH_RUN_DIR" "$AGH_LOG_DIR"
 printf 'state=ready\npid=not-a-secret-pid\nfirewall_authorized=1\n' > "$AGH_STATE_DIR/core.state"
-printf 'state=ready\nreason=ready\n' > "$AGH_STATE_DIR/firewall.state"
+printf 'state=ready\nreason=ready\nhttpdns_block=true\nhttpdns_rules=4\nhttpdns_skipped=1\n' > "$AGH_STATE_DIR/firewall.state"
 printf 'state=disabled\n' > "$AGH_STATE_DIR/proxy.state"
 printf 'state=disabled\n' > "$AGH_STATE_DIR/file.state"
 printf 'password=super-secret\n' > "$AGH_STATE_DIR/credentials.conf"
@@ -35,9 +35,14 @@ printf '%s\n' "$log_output" | grep -F 'safe-message' >/dev/null || fail 'diagnos
 printf '%s\n' "$log_output" | grep -F 'super-secret' >/dev/null && fail 'diagnostic logs leaked password' || true
 printf '%s\n' "$log_output" | grep -F 'abc123' >/dev/null && fail 'diagnostic logs leaked token' || true
 printf '%s\n' "$output" | grep -F '35001' >/dev/null || fail 'diagnostics omitted web port'
+printf '%s\n' "$output" | grep -Fx 'httpdns_block=true' >/dev/null || fail 'diagnostics omitted httpdns block state'
+printf '%s\n' "$output" | grep -Fx 'httpdns_rules=4' >/dev/null || fail 'diagnostics omitted httpdns applied count'
+printf '%s\n' "$output" | grep -Fx 'httpdns_skipped=1' >/dev/null || fail 'diagnostics omitted httpdns skipped count'
 printf 'redirect_ipv6_dns=true\n' > "$AGH_CONFIG_DIR/mode.conf"
-printf 'state=degraded\nreason=v6_nat_chain\nv6_redirect=false\n' > "$AGH_STATE_DIR/firewall.state"
+printf 'state=degraded\nreason=v6_nat_chain\nv6_redirect=false\nhttpdns_block=false\nhttpdns_rules=0\nhttpdns_skipped=2\n' > "$AGH_STATE_DIR/firewall.state"
 output=$(sh "$ROOT/module/scripts/diagnostics/diagnostics.sh")
 printf '%s\n' "$output" | grep -Fx 'ipv6_dns_applied=false' >/dev/null || fail 'requested IPv6 policy misreported as applied'
+printf '%s\n' "$output" | grep -Fx 'httpdns_block=false' >/dev/null || fail 'disabled httpdns misreported as blocked'
+printf '%s\n' "$output" | grep -Fx 'httpdns_skipped=2' >/dev/null || fail 'httpdns skipped count lost after state change'
 
 printf '%s\n' 'diagnostics tests passed'

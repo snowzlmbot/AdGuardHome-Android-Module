@@ -38,6 +38,17 @@ DNS mode 2 is **encrypted preferred with plaintext fallback**, not encrypted-onl
 
 The device acceptance command in `tests/device_dns_acceptance.py` requires a locally built `tests/device_dnsprobe.go` installed at `/data/local/tmp/agh-test/dnsprobe`, an explicitly chosen authorized serial and literal DNS destinations. It exercises real UDP/TCP A/AAAA queries under selected non-root UIDs and saves every result. A synthetic clone UID is not proof of a running OEM clone profile, and the probe's KernelSU execution context is not a browser/app SELinux-context test.
 
+## Per-app HTTPDNS bypass blocking (0.1.22)
+
+Some apps (measured: Coolapk on a Xiaomi 14 Ultra) bypass ordinary DNS filtering by resolving endpoints through HTTPDNS — direct TLS/443 connections to fixed IPs. To block that, set `block_app_httpdns=true` in `/data/adb/agh/config/mode.conf` and reboot (or let the firewall worker cycle). The module resolves each package in `/data/adb/agh/config/httpdns-targets.conf` (`package|ipv4|port`) to its UID and rejects TCP to those endpoints with `tcp-reset`, forcing the app back onto the filtered plain-DNS path.
+
+Limits and checks:
+
+- IPv4 only. IPv6 target lines are skipped. Loopback/unspecified/multicast/broadcast addresses and ports outside 1-65535 are skipped.
+- The endpoint list is static and can go stale when apps rotate IPs. Edit `/data/adb/agh/config/httpdns-targets.conf` (it is only written by the installer when absent, so your edits persist).
+- At most 64 targets are applied; the rest, and any invalid or UID-unresolvable line, are skipped and logged — a bad line never rolls back the whole firewall.
+- Verify with diagnostics: `httpdns_block=true`, `httpdns_rules` (applied count), `httpdns_skipped` (skipped count). `httpdns_rules=0` with `httpdns_skipped>0` usually means the app is not installed (no UID) or the line is invalid.
+
 ## Device validation still required
 
 Cloud tests exercise real AdGuard Home queries over IPv4/IPv6 UDP/TCP, A/AAAA, normal domains, burst traffic, installer payloads, simulated firewall ordering, and BusyBox startup. They do not prove Android netd/eBPF behavior, OEM clone profiles, or KSU SELinux/device compatibility. Test a normal app and its clone on Wi-Fi/mobile and IPv6, then repeat with Private DNS/VPN as separate cases.

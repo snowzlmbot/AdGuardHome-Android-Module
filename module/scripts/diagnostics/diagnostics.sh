@@ -118,6 +118,15 @@ printf 'ipv6_dns_method=%s\n' "$(state_value "$diagnostics_firewall" v6_method)"
 printf 'ipv6_linklocal_tcp=%s\n' "$(state_value "$diagnostics_firewall" v6_linklocal_tcp)"
 printf 'dot_block=%s\n' "$( sed -n 's/^block_ipv4_dot=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'doq_block=%s\n' "$( sed -n 's/^block_ipv4_doq=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+diagnostics_httpdns_block=$(state_value "$diagnostics_firewall" httpdns_block)
+[ -n "$diagnostics_httpdns_block" ] || diagnostics_httpdns_block=false
+diagnostics_httpdns_rules=$(state_value "$diagnostics_firewall" httpdns_rules)
+[ -n "$diagnostics_httpdns_rules" ] || diagnostics_httpdns_rules=0
+diagnostics_httpdns_skipped=$(state_value "$diagnostics_firewall" httpdns_skipped)
+[ -n "$diagnostics_httpdns_skipped" ] || diagnostics_httpdns_skipped=0
+printf 'httpdns_block=%s\n' "$diagnostics_httpdns_block"
+printf 'httpdns_rules=%s\n' "$diagnostics_httpdns_rules"
+printf 'httpdns_skipped=%s\n' "$diagnostics_httpdns_skipped"
 printf 'vpn_passthrough=%s\n' "$( sed -n 's/^bypass_vpn_traffic=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'bypass_vpn_traffic=%s\n' "$( sed -n 's/^bypass_vpn_traffic=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'network_type=%s\n' "$(state_value "$diagnostics_network" network || printf other)"

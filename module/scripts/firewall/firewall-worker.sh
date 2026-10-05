@@ -41,6 +41,9 @@ firewall_state_write() {
         printf 'v6_dot_block=%s\n' "${FW_V6_DOT_BLOCK:-false}"
         printf 'doq_block=%s\n' "${FW_DOQ_BLOCK:-false}"
         printf 'v6_doq_block=%s\n' "${FW_V6_DOQ_BLOCK:-false}"
+        printf 'httpdns_block=%s\n' "${FW_HTTPDNS_BLOCK:-false}"
+        printf 'httpdns_rules=%s\n' "${FW_HTTPDNS_RULES:-0}"
+        printf 'httpdns_skipped=%s\n' "${FW_HTTPDNS_SKIPPED:-0}"
     } > "$firewall_tmp" || return 1
     chmod 0600 "$firewall_tmp"
     agh_sync
@@ -169,6 +172,9 @@ firewall_remove() {
     FW_V6_DOT_BLOCK=false
     FW_DOQ_BLOCK=false
     FW_V6_DOQ_BLOCK=false
+    FW_HTTPDNS_BLOCK=false
+    FW_HTTPDNS_RULES=0
+    FW_HTTPDNS_SKIPPED=0
     firewall_cleanup_all_failed=0
     firewall_remove_tproxy || firewall_cleanup_all_failed=1
     firewall_remove_v4 || firewall_cleanup_all_failed=1
@@ -387,6 +393,107 @@ firewall_fail() {
     return 1
 }
 
+# Resolve an installed package to its UID from the static packages.list.
+# This avoids binder/`cmd` entirely: the module's boot SELinux domain is not
+# allowed to call the package service, but can read this file as root.
+# Prints the UID of the first matching user; failure exits 1.
+firewall_resolve_uid() {
+    firewall_resolve_pkg=$1
+    [ -n "$firewall_resolve_pkg" ] || return 1
+    firewall_resolve_list=${FW_PACKAGES_LIST:-/data/system/packages.list}
+    [ -f "$firewall_resolve_list" ] || return 1
+    firewall_resolve_value=$(awk -v p="$firewall_resolve_pkg" '
+        $1 == p && $2 ~ /^[0-9]+$/ { print $2; exit }
+    ' "$firewall_resolve_list") || return 1
+    case "$firewall_resolve_value" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$firewall_resolve_value"
+}
+
+# Strict dotted-quad check that also rejects loopback (127/8), unspecified
+# (0/8), multicast (224/4) and reserved/broadcast (240/4) addresses. IPv6
+# input has no dotted-quad shape and is rejected here as unsupported.
+firewall_valid_httpdns_ip() {
+    firewall_httpdns_ip=$1
+    firewall_httpdns_ifs=$IFS
+    IFS=.
+    set -- $firewall_httpdns_ip
+    IFS=$firewall_httpdns_ifs
+    [ "$#" -eq 4 ] || return 1
+    for firewall_httpdns_octet in "$@"; do
+        case "$firewall_httpdns_octet" in
+            ''|*[!0-9]*|0?*) return 1 ;;
+        esac
+        [ "$firewall_httpdns_octet" -le 255 ] 2>/dev/null || return 1
+    done
+    [ "$1" -ge 1 ] 2>/dev/null || return 1
+    [ "$1" -ne 127 ] 2>/dev/null || return 1
+    [ "$1" -lt 224 ] 2>/dev/null
+}
+
+firewall_valid_httpdns_port() {
+    case "$1" in ''|*[!0-9]*|0?*) return 1 ;; esac
+    [ "$1" -ge 1 ] 2>/dev/null && [ "$1" -le 65535 ] 2>/dev/null
+}
+
+# Per-app HTTPDNS bypass endpoint rules. Invalid targets, unresolvable or
+# root UIDs and rules beyond the 64-target cap are skipped and logged, never
+# failing the whole firewall; only a real iptables append error propagates.
+firewall_httpdns_rules() {
+    firewall_httpdns_binary=$1
+    firewall_httpdns_family=$2
+    firewall_httpdns_chain=$3
+    FW_HTTPDNS_RULES=0
+    FW_HTTPDNS_SKIPPED=0
+    [ "$FW_WANT_HTTPDNS" = true ] || return 0
+    [ "$firewall_httpdns_family" = v4 ] || return 0
+    firewall_httpdns_targets="$AGH_CONFIG_DIR/httpdns-targets.conf"
+    if [ ! -f "$firewall_httpdns_targets" ]; then
+        log_message firewall 'httpdns block enabled but target file is missing; no rules applied'
+        return 0
+    fi
+    firewall_httpdns_skip() {
+        firewall_httpdns_reason=$1
+        FW_HTTPDNS_SKIPPED=$((FW_HTTPDNS_SKIPPED + 1))
+        log_message firewall "httpdns: skipped line $firewall_httpdns_line: $firewall_httpdns_reason"
+    }
+    firewall_httpdns_line=0
+    while IFS='|' read -r firewall_httpdns_pkg firewall_httpdns_ip firewall_httpdns_port firewall_httpdns_extra; do
+        firewall_httpdns_line=$((firewall_httpdns_line + 1))
+        case "$firewall_httpdns_pkg" in
+            \#*) continue ;;
+            '') continue ;;
+        esac
+        case "$firewall_httpdns_pkg" in
+            *[!A-Za-z0-9._-]*) firewall_httpdns_skip 'invalid package'; continue ;;
+        esac
+        if [ -n "$firewall_httpdns_extra" ] || [ -z "$firewall_httpdns_ip" ] || [ -z "$firewall_httpdns_port" ]; then
+            firewall_httpdns_skip 'malformed target'; continue
+        fi
+        if ! firewall_valid_httpdns_ip "$firewall_httpdns_ip"; then
+            firewall_httpdns_skip 'invalid or unsupported address'; continue
+        fi
+        if ! firewall_valid_httpdns_port "$firewall_httpdns_port"; then
+            firewall_httpdns_skip 'invalid port'; continue
+        fi
+        if [ "$FW_HTTPDNS_RULES" -ge 64 ]; then
+            firewall_httpdns_skip 'rule cap reached'; continue
+        fi
+        firewall_httpdns_uid=$(firewall_resolve_uid "$firewall_httpdns_pkg") || {
+            firewall_httpdns_skip 'package uid not resolvable'; continue
+        }
+        if [ "$firewall_httpdns_uid" = 0 ]; then
+            firewall_httpdns_skip 'root uid target'; continue
+        fi
+        firewall_rule "$firewall_httpdns_binary" filter "$firewall_httpdns_chain" \
+            -p tcp -d "$firewall_httpdns_ip" --dport "$firewall_httpdns_port" \
+            -m owner --uid-owner "$firewall_httpdns_uid" -j REJECT --reject-with tcp-reset || return 1
+        FW_HTTPDNS_RULES=$((FW_HTTPDNS_RULES + 1))
+    done < "$firewall_httpdns_targets"
+    return 0
+}
+
 firewall_apply_family() {
     firewall_apply_binary=$1
     firewall_apply_family=$2
@@ -396,7 +503,8 @@ firewall_apply_family() {
     firewall_apply_dns=$6
     firewall_apply_dot=$7
     firewall_apply_doq=$8
-    [ "$firewall_apply_dns" = true ] || [ "$firewall_apply_dot" = true ] || [ "$firewall_apply_doq" = true ] || return 0
+    firewall_apply_httpdns=$9
+    [ "$firewall_apply_dns" = true ] || [ "$firewall_apply_dot" = true ] || [ "$firewall_apply_doq" = true ] || [ "$firewall_apply_httpdns" = true ] || return 0
     FW_APPLY_REASON=${firewall_apply_family}_filter_chain
     firewall_ensure_chain "$firewall_apply_binary" filter "$firewall_apply_filter" || return 1
     if [ "$firewall_apply_dns" = true ]; then
@@ -441,6 +549,10 @@ firewall_apply_family() {
             firewall_rule "$firewall_apply_binary" filter "$firewall_apply_filter" -p udp --dport "$firewall_doq_port" -j DROP || return 1
         done
     fi
+    if [ "$firewall_apply_httpdns" = true ]; then
+        FW_APPLY_REASON=${firewall_apply_family}_httpdns_rules
+        firewall_httpdns_rules "$firewall_apply_binary" "$firewall_apply_family" "$firewall_apply_filter" || return 1
+    fi
     # Publish filter first, NAT last: never expose redirected clone DNS to the
     # rejecting netd chain while its narrowly scoped exemption is absent.
     FW_APPLY_REASON=${firewall_apply_family}_filter_jump
@@ -461,6 +573,7 @@ firewall_ensure() {
     FW_USE_TPROXY=false
     FW_DOT_BLOCK=false; FW_V6_DOT_BLOCK=false
     FW_DOQ_BLOCK=false; FW_V6_DOQ_BLOCK=false
+    FW_HTTPDNS_BLOCK=false; FW_HTTPDNS_RULES=0; FW_HTTPDNS_SKIPPED=0
     FW_V6_REASON=
     FW_WANT_V4_DNS=$(firewall_option redirect_ipv4_dns true)
     FW_WANT_V6_DNS=$(firewall_option redirect_ipv6_dns true)
@@ -470,6 +583,7 @@ firewall_ensure() {
     FW_WANT_V6_DOT=$(firewall_option block_ipv6_dot false)
     FW_WANT_V4_DOQ=$(firewall_option block_ipv4_doq false)
     FW_WANT_V6_DOQ=$(firewall_option block_ipv6_doq false)
+    FW_WANT_HTTPDNS=$(firewall_option block_app_httpdns false)
     FW_NETWORK_STATE=$(firewall_state_value "$AGH_STATE_DIR/network.state" state); [ -n "$FW_NETWORK_STATE" ] || FW_NETWORK_STATE=unknown
     FW_NETWORK_MODE=$(firewall_state_value "$AGH_STATE_DIR/network.state" mode); [ -n "$FW_NETWORK_MODE" ] || FW_NETWORK_MODE=unknown
     FW_NETWORK_TYPE=$(firewall_state_value "$AGH_STATE_DIR/network.state" network); [ -n "$FW_NETWORK_TYPE" ] || FW_NETWORK_TYPE=unknown
@@ -505,7 +619,7 @@ firewall_ensure() {
     if [ "$FW_USE_TPROXY" != true ]; then
         firewall_remove_tproxy || { firewall_state_write degraded tproxy_remove_failed; return 1; }
     fi
-    firewall_verify_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ"
+    firewall_verify_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ" "$FW_WANT_HTTPDNS"
     FW_V4_VERIFY_RC=$?
     if [ "$FW_V4_VERIFY_RC" = 2 ]; then
         firewall_state_write degraded v4_inspect_failed
@@ -514,7 +628,7 @@ firewall_ensure() {
     # Only changed or damaged rules need the existing detach/rebuild path.
     if [ "$FW_V4_VERIFY_RC" != 0 ]; then
         firewall_remove_v4 || { firewall_fail v4_remove_failed; return 1; }
-        if ! firewall_apply_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ"; then
+        if ! firewall_apply_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ" "$FW_WANT_HTTPDNS"; then
             firewall_fail "$FW_APPLY_REASON"
             return 1
         fi
@@ -522,7 +636,7 @@ firewall_ensure() {
     FW_V6_CLEANUP_OK=true
     FW_V6_VERIFY_RC=1
     if command -v "$firewall_binary_v6" >/dev/null 2>&1; then
-        firewall_verify_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ"
+        firewall_verify_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ" false
         FW_V6_VERIFY_RC=$?
     fi
     if [ "$FW_V6_VERIFY_RC" = 2 ]; then
@@ -533,11 +647,12 @@ firewall_ensure() {
     FW_V4_REDIRECT=$FW_WANT_V4_DNS
     FW_DOT_BLOCK=$FW_WANT_V4_DOT
     FW_DOQ_BLOCK=$FW_WANT_V4_DOQ
+    FW_HTTPDNS_BLOCK=$FW_WANT_HTTPDNS
     if [ "$FW_V6_CLEANUP_OK" = true ]; then
         if [ "$FW_WANT_V6_DNS" = true ] || [ "$FW_WANT_V6_DOT" = true ] || [ "$FW_WANT_V6_DOQ" = true ]; then
             if ! command -v "$firewall_binary_v6" >/dev/null 2>&1; then
                 FW_V6_REASON=ip6tables_missing
-            elif [ "$FW_V6_VERIFY_RC" = 0 ] || firewall_apply_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ"; then
+            elif [ "$FW_V6_VERIFY_RC" = 0 ] || firewall_apply_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ" false; then
                 FW_V6_REDIRECT=$FW_WANT_V6_DNS
                 [ "$FW_V6_REDIRECT" != true ] || FW_V6_METHOD=nat
                 [ "$FW_V6_REDIRECT" != true ] || FW_V6_LINKLOCAL_TCP=true
