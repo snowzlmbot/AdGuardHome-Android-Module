@@ -28,7 +28,7 @@ jobs:
           python3 tests/cloud_rules_live_test.py
       - name: Verify IPv6 DNS relay and reversible routing lifecycle
         run: |
-          sudo -E unshare -n sh -c 'ip link set lo up; cd helper/dns-tproxy && go test -race ./...'
+          sudo -E env GOCACHE="$RUNNER_TEMP/root-go-cache" unshare -n sh -c 'ip link set lo up; cd helper/dns-tproxy && go test -race ./...'
           sudo -E python3 tests/tproxy_lifecycle_test.py
           python3 tests/tproxy_firewall_integration_test.py
       - name: Verify actual cloud download with BusyBox only
