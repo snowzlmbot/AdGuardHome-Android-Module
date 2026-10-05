@@ -42,6 +42,75 @@ class AndroidRuntimeRegression(unittest.TestCase):
         snap.write_text('network=wifi\ninterface=wlan0\nvpn=true\ndns4=192.0.2.1\ndns6=fe80::1%wlan0;bad\n')
         result=self.worker('scripts/network/network-worker.sh','once',NETWORK_SNAPSHOT_FILE=str(snap))
         self.assertNotEqual(result.returncode,0)
+
+    def test_down_system_tunnel_is_not_a_vpn(self):
+        """Android's dormant tunl0/ip6tnl0 devices must not bypass DNS."""
+        ip = self.root/'ip'
+        ip.write_text("""#!/bin/sh
+case "$*" in
+  'route get 1.1.1.1') printf '%s\\n' '1.1.1.1 via 192.0.2.1 dev wlan0 src 192.0.2.2' ;;
+  '-o link show') printf '%s\\n' '5: tunl0@NONE: <NOARP>' ;;
+  'route') exit 0 ;;
+  '-6 route') exit 0 ;;
+  *) exit 1 ;;
+esac
+""")
+        ip.chmod(0o755)
+        dumpsys = self.root/'dumpsys'
+        dumpsys.write_text("#!/bin/sh\nprintf '%s\\n' 'NetworkAgentInfo{network{102} TRANSPORT_WIFI}'\n")
+        dumpsys.chmod(0o755)
+        result=self.worker('scripts/network/network-worker.sh','once',AGH_BUSYBOX='',PATH=str(self.root)+':'+os.environ['PATH'])
+        self.assertEqual(result.returncode,0,result.stderr)
+        state=(self.root/'state/network.state').read_text()
+        self.assertIn('network=wifi\n',state)
+        self.assertIn('vpn=false\n',state)
+
+    def test_vpn_listen_request_is_not_an_active_vpn(self):
+        """SystemUI subscribes to VPN events even with no VPN connected."""
+        ip = self.root/'ip'
+        ip.write_text("#!/bin/sh\ncase \"$*\" in\n'route get 1.1.1.1') printf '%s\\n' '1.1.1.1 dev wlan0' ;;\n'-o link show') printf '%s\\n' '2: wlan0: <UP>' ;;\nesac\n")
+        ip.chmod(0o755)
+        dumpsys = self.root/'dumpsys'
+        dumpsys.write_text("#!/bin/sh\nprintf '%s\\n' 'NetworkAgentInfo{network{102} Transports: WIFI}' 'callbackRequest: 29 [NetworkRequest [ LISTEN id=29, [ Transports: VPN Capabilities: NOT_VPN ] ]]'\n")
+        dumpsys.chmod(0o755)
+        result=self.worker('scripts/network/network-worker.sh','once',AGH_BUSYBOX='',PATH=str(self.root)+':'+os.environ['PATH'])
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('vpn=false\n',(self.root/'state/network.state').read_text())
+
+    def test_active_modern_vpn_with_nonstandard_interface_is_detected(self):
+        ip = self.root/'ip'
+        ip.write_text("#!/bin/sh\ncase \"$*\" in\n'route get 1.1.1.1') printf '%s\\n' '1.1.1.1 dev wlan0' ;;\n'-o link show') printf '%s\\n' '7: ipsec0: <POINTOPOINT,UP,LOWER_UP> state UNKNOWN' ;;\nesac\n")
+        ip.chmod(0o755)
+        dumpsys = self.root/'dumpsys'
+        dumpsys.write_text("#!/bin/sh\nprintf '%s\\n' 'NetworkAgentInfo{network{103} Transports: WIFI|VPN Capabilities: INTERNET&VALIDATED}'\n")
+        dumpsys.chmod(0o755)
+        result=self.worker('scripts/network/network-worker.sh','once',AGH_BUSYBOX='',PATH=str(self.root)+':'+os.environ['PATH'])
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('vpn=true\n',(self.root/'state/network.state').read_text())
+
+    def test_wifi_subscription_with_no_default_network_is_not_online(self):
+        ip = self.root/'ip'
+        ip.write_text("#!/bin/sh\ncase \"$*\" in\n'route get 1.1.1.1') printf '%s\\n' '1.1.1.1 dev dummy0' ;;\nesac\n")
+        ip.chmod(0o755)
+        dumpsys = self.root/'dumpsys'
+        dumpsys.write_text("#!/bin/sh\nprintf '%s\\n' 'Active default network: none' 'NetworkRequest [ LISTEN id=29, [ Transports: CELLULAR|WIFI ] ]'\n")
+        dumpsys.chmod(0o755)
+        result=self.worker('scripts/network/network-worker.sh','once',AGH_BUSYBOX='',PATH=str(self.root)+':'+os.environ['PATH'])
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('reason=no_network\n',(self.root/'state/network.state').read_text())
+
+    def test_default_mobile_agent_wins_over_other_wifi_agent(self):
+        ip = self.root/'ip'
+        ip.write_text("#!/bin/sh\ncase \"$*\" in\n'route get 1.1.1.1') printf '%s\\n' '1.1.1.1 dev rmnet_data0' ;;\nesac\n")
+        ip.chmod(0o755)
+        dumpsys = self.root/'dumpsys'
+        dumpsys.write_text("#!/bin/sh\nprintf '%s\\n' 'Active default network: 103' 'NetworkAgentInfo{network{102} InterfaceName: wlan0 DnsAddresses: [ /192.0.2.1 ] Transports: WIFI}' 'NetworkAgentInfo{network{103} InterfaceName: rmnet_data0 DnsAddresses: [ /198.51.100.53 ] Transports: CELLULAR}'\n")
+        dumpsys.chmod(0o755)
+        result=self.worker('scripts/network/network-worker.sh','once',AGH_BUSYBOX='',PATH=str(self.root)+':'+os.environ['PATH'])
+        self.assertEqual(result.returncode,0,result.stderr)
+        state=(self.root/'state/network.state').read_text()
+        self.assertIn('network=mobile\n',state)
+        self.assertIn('dns4=198.51.100.53\n',state)
     def test_file_validator_uses_static_busybox_not_broken_system_awk(self):
         result=self.worker('scripts/adapters/file-rules.sh','validate',str(MODULE/'targets/file-ad-targets.conf'))
         self.assertEqual(result.returncode,0,result.stderr)

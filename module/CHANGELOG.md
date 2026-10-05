@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.22 (candidate)
+
+- Add opt-in per-app HTTPDNS endpoint blocking (`block_app_httpdns` in mode.conf) that stops apps from bypassing ordinary DNS filtering through HTTPDNS over TLS/443, using precise `tcp-reset` REJECT rules scoped to the app UID. Ships with Coolapk endpoints measured on a Xiaomi 14 Ultra.
+- Unchanged HTTPDNS rules reuse the existing journaled verify/rebuild path: no destructive refresh, exact rollback, and foreign rules stay untouched.
+- Limits: IPv4 only; endpoints come from a static list (`/data/adb/agh/config/httpdns-targets.conf`, editable) that can go stale with app updates; blocking must be enabled in mode.conf; at most 64 targets are applied and invalid/unresolvable lines are skipped and logged, never failing the firewall.
+
+## 0.1.21 (candidate)
+
+- Fix false VPN detection from inactive system tunnels and Android VPN subscriptions; choose the active default network instead of stale agents and requests.
+- Add a reversible, loopback-only IPv6 DNS TPROXY fallback for kernels without IPv6 NAT, including scoped link-local UDP routing. Link-local IPv6 TCP remains explicitly unfiltered because the tested kernel resets its recirculated handshake.
+- Verify unchanged firewall rules without destructive refresh, keep listeners alive when removal cannot be proven, and preserve unrelated Android/module firewall rules.
+- Distinguish requested and applied IPv6 policy in diagnostics/WebUI. Label mode 2 accurately as encrypted-preferred with plaintext availability fallback.
+- Add real-device DNS probes, network/lifecycle regressions, a statically built DNS relay, checksummed installation and package verification.
+- Preserve credentials, ports, custom configuration and disabled file-ad cleanup; do not disable global IPv6, rewrite Private DNS settings, or clear application data.
+
 ## 0.1.20
 
 - Accept scoped IPv6 DNS addresses reported by Android without disabling a usable network.

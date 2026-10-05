@@ -12,10 +12,10 @@ const messages = {
     'hint.autoRefresh': '操作后自动刷新', 'hint.isolation': '故障不会停止 DNS 核心',
     'action.start': '▶ 启动', 'action.pause': 'Ⅱ 暂停', 'action.resume': '↗ 恢复', 'action.restart': '↻ 重启核心',
     'action.openDashboard': '打开管理界面', 'action.queryLog': '打开查询日志', 'action.credentials': '查看登录凭据', 'action.logs': '查看模块日志', 'action.backup': '备份配置', 'action.refresh': '刷新状态', 'action.close': '关闭',
-    'mode.unknown': '未知', 'mode.1': '内网兼容', 'mode.1help': '校园网 / 企业域名', 'mode.2': '纯加密', 'mode.3help': '域名上游引导',
+    'mode.unknown': '未知', 'mode.1': '内网兼容', 'mode.1help': '校园网 / 企业域名', 'mode.2': '加密优先', 'mode.3help': '域名上游引导',
     'dashboard.waiting': '等待核心启动…', 'adapter.proxy': '代理配置适配', 'adapter.file': '文件级去广告',
     'adapter.fileWarning': '高风险 · 默认关闭', 'adapter.proxyToggle': '切换代理适配', 'adapter.fileToggle': '切换文件适配',
-    'policy.ipv6': 'IPv6 DNS 防泄漏', 'policy.ipv6Help': '阻断直连 IPv6 DNS', 'policy.encrypted': '853 加密 DNS 防泄漏', 'policy.encryptedHelp': 'DoT / DoQ 端口策略', 'policy.vpn': 'VPN 兼容旁路', 'policy.vpnHelp': 'VPN 运行时优先保证连接',
+    'policy.ipv6': 'IPv6 DNS 防泄漏', 'policy.ipv6Help': '接管 IPv6 DNS，保留 IPv6 联网', 'policy.encrypted': '853 加密 DNS 防泄漏', 'policy.encryptedHelp': 'DoT / DoQ 端口策略', 'policy.vpn': 'VPN 兼容旁路', 'policy.vpnHelp': 'VPN 运行时优先保证连接',
     'footer.refresh': '状态每 5 秒自动刷新', 'credential.title': '管理登录信息', 'credential.username': '用户名',
     'credential.password': '密码', 'credential.warning': '仅在你主动点击时读取。请勿截图公开。', 'logs.eyebrow': '脱敏诊断', 'logs.title': '最近模块日志', 'toast.logs': '日志读取失败',
     'toggle.on': '已开启 · 点击关闭', 'toggle.off': '已关闭 · 点击开启',
@@ -48,10 +48,10 @@ const messages = {
     'hint.autoRefresh': 'Refreshes after actions', 'hint.isolation': 'Adapter failures do not stop DNS',
     'action.start': '▶ Start', 'action.pause': 'Ⅱ Pause', 'action.resume': '↗ Resume', 'action.restart': '↻ Restart core',
     'action.openDashboard': 'Open dashboard', 'action.queryLog': 'Open query log', 'action.credentials': 'Show credentials', 'action.logs': 'View module logs', 'action.backup': 'Backup config', 'action.refresh': 'Refresh status', 'action.close': 'Close',
-    'mode.unknown': 'Unknown', 'mode.1': 'LAN compatible', 'mode.1help': 'Campus / enterprise domains', 'mode.2': 'Encrypted', 'mode.3help': 'Domain upstream bootstrap',
+    'mode.unknown': 'Unknown', 'mode.1': 'LAN compatible', 'mode.1help': 'Campus / enterprise domains', 'mode.2': 'Encrypted preferred', 'mode.3help': 'Domain upstream bootstrap',
     'dashboard.waiting': 'Waiting for the core…', 'adapter.proxy': 'Proxy configuration adapter', 'adapter.file': 'File-level ad cleanup',
     'adapter.fileWarning': 'HIGH RISK · OFF BY DEFAULT', 'adapter.proxyToggle': 'Toggle proxy adapter', 'adapter.fileToggle': 'Toggle file adapter',
-    'policy.ipv6': 'IPv6 DNS leak protection', 'policy.ipv6Help': 'Block direct IPv6 DNS', 'policy.encrypted': 'Encrypted DNS leak protection', 'policy.encryptedHelp': 'DoT / DoQ port policy', 'policy.vpn': 'VPN compatibility bypass', 'policy.vpnHelp': 'Prioritize VPN connectivity',
+    'policy.ipv6': 'IPv6 DNS leak protection', 'policy.ipv6Help': 'Intercept IPv6 DNS; keep IPv6 connectivity', 'policy.encrypted': 'Encrypted DNS leak protection', 'policy.encryptedHelp': 'DoT / DoQ port policy', 'policy.vpn': 'VPN compatibility bypass', 'policy.vpnHelp': 'Prioritize VPN connectivity',
     'footer.refresh': 'Status refreshes every 5 seconds', 'credential.title': 'Dashboard credentials', 'credential.username': 'Username',
     'credential.password': 'Password', 'credential.warning': 'Read only after an explicit click. Do not share screenshots.', 'logs.eyebrow': 'REDACTED DIAGNOSTICS', 'logs.title': 'Recent module logs', 'toast.logs': 'Failed to read logs',
     'toggle.on': 'ON · Disable', 'toggle.off': 'OFF · Enable',
@@ -236,6 +236,9 @@ async function setPolicy(policy, enabled) {
       : policy === 'redirect_ipv6_dns' ? current.ipv6_dns_block
       : String(current.dot_block === 'true' && current.doq_block === 'true');
     if (actual !== String(enabled)) throw new Error('policy_readback');
+    if (policy === 'redirect_ipv6_dns' && enabled && current.core === 'ready' && current.firewall === 'degraded' && current.ipv6_dns_applied !== 'true') {
+      throw new Error(`saved_not_applied: ${current.firewall_reason || 'ipv6_unavailable'}`);
+    }
     if (policy === 'bypass_vpn_traffic' && !enabled && current.firewall === 'bypassed') throw new Error('vpn_still_bypassed');
     showToast(text('toast.done'));
   } catch (error) { showToast(`${text('toast.failed')}: ${error.message}`); }

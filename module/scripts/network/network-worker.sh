@@ -67,6 +67,21 @@ network_default_interface() {
 network_read_android() {
     network_dump="$AGH_RUN_DIR/connectivity.dump.$$"
     dumpsys connectivity > "$network_dump" 2>/dev/null || : > "$network_dump"
+    network_active=$(sed -n 's/^[[:space:]]*Active default network:[[:space:]]*//p' "$network_dump" | sed -n '1p')
+    if [ "$network_active" = none ]; then
+        NETWORK_TYPE=none; NETWORK_INTERFACE=; NETWORK_VPN=false; NETWORK_DNS4=; NETWORK_DNS6=
+        rm -f "$network_dump"
+        return 0
+    fi
+    network_view="$network_dump.active"
+    # Subscriptions/offers are not connected networks. Prefer the actual
+    # default agent for DNS/type, so a retained Wi-Fi agent cannot hide mobile.
+    if [ -n "$network_active" ] && [ "$network_active" != null ]; then
+        awk -v id="$network_active" 'index($0,"NetworkAgentInfo{network{" id "}") {print}' "$network_dump" > "$network_view"
+    else
+        grep -vE 'NetworkRequest|NetworkOffer|callbackRequest|RequestorPkg' "$network_dump" > "$network_view"
+    fi
+    [ -s "$network_view" ] || grep -vE 'NetworkRequest|NetworkOffer|callbackRequest|RequestorPkg' "$network_dump" > "$network_view"
     network_default_interface
     case "$NETWORK_INTERFACE" in
         wlan*|wifi*) NETWORK_TYPE=wifi ;;
@@ -76,19 +91,32 @@ network_read_android() {
         '') NETWORK_TYPE=none ;;
         *) NETWORK_TYPE=other ;;
     esac
-    if grep -Eq 'TRANSPORT_WIFI|type:[[:space:]]*WIFI|(^|[^A-Z])WIFI([^A-Z]|$)' "$network_dump"; then
+    if grep -Eq 'TRANSPORT_WIFI|type:[[:space:]]*WIFI|(^|[^A-Z])WIFI([^A-Z]|$)' "$network_view"; then
         NETWORK_TYPE=wifi
-    elif grep -Eq 'TRANSPORT_CELLULAR|type:[[:space:]]*MOBILE|(^|[^A-Z])MOBILE([^A-Z]|$)' "$network_dump"; then
+    elif grep -Eq 'TRANSPORT_CELLULAR|type:[[:space:]]*MOBILE|(^|[^A-Z])(MOBILE|CELLULAR)([^A-Z]|$)' "$network_view"; then
         NETWORK_TYPE=mobile
-    elif grep -Eq 'TRANSPORT_ETHERNET|type:[[:space:]]*ETHERNET' "$network_dump"; then
+    elif grep -Eq 'TRANSPORT_ETHERNET|type:[[:space:]]*ETHERNET' "$network_view"; then
         NETWORK_TYPE=ethernet
     fi
-    if grep -Eq 'TRANSPORT_VPN|type:[[:space:]]*VPN' "$network_dump" || ip -o link show 2>/dev/null | grep -Eq ':[[:space:]]+(tun|tap|ppp|wg|tailscale)[^:]*:'; then
+    # Android creates dormant tunl0/ip6tnl0 IP-in-IP devices even without a
+    # VPN. A name alone is not evidence of a live VPN; require the UP flag
+    # (TUN operstate may legitimately be UNKNOWN) and exclude system tunnels.
+    # LISTEN/REQUEST subscriptions mention VPN even when no VPN is connected.
+    if grep -vE 'NetworkRequest|NetworkOffer|callbackRequest' "$network_dump" | grep -Eq 'TRANSPORT_VPN|type:[[:space:]]*VPN|Transports:[^]]*([[:space:]]|[|])VPN([[:space:]]|[|]|$)' ||
+       ip -o link show 2>/dev/null | awk '
+           {
+               name=$2; sub(/:$/, "", name); sub(/@.*/, "", name)
+               if (name ~ /^(tun|tap|ppp|wg|tailscale)/ &&
+                   name !~ /^(tunl|ip6tnl)[0-9]*$/ &&
+                   $3 ~ /(^<|,)UP(,|>)/) found=1
+           }
+           END { exit !found }
+       '; then
         NETWORK_VPN=true
     else
         NETWORK_VPN=false
     fi
-    network_dns_line=$(sed -n 's/.*DnsAddresses: \[\([^]]*\)\].*/\1/p' "$network_dump" | sed -n '1p' | tr -d ' /')
+    network_dns_line=$(sed -n 's/.*DnsAddresses: \[\([^]]*\)\].*/\1/p' "$network_view" | sed -n '1p' | tr -d ' /')
     network_dns_tokens=$(printf '%s\n' "$network_dns_line" | tr ',' '\n')
     NETWORK_DNS4=
     NETWORK_DNS6=
@@ -104,7 +132,7 @@ network_read_android() {
     done
     network_dump_has_data=false
     [ -s "$network_dump" ] && network_dump_has_data=true
-    rm -f "$network_dump"
+    rm -f "$network_dump" "$network_view"
     [ "$NETWORK_TYPE" != none ] || [ "$network_dump_has_data" != true ] || NETWORK_TYPE=other
     [ "$NETWORK_TYPE" != none ] || [ "$network_dump_has_data" = true ] || return 1
 }

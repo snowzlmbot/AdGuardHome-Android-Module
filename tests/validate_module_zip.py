@@ -11,6 +11,9 @@ REQUIRED = (
     "scripts/lib/dns-filters.sh", "rules/anti-ad-easylist.txt",
     "rules/anti-ad-easylist.txt.sha256", "licenses/anti-AD-MIT.txt",
     "bin/arm64/AdGuardHome", "bin/armv7/AdGuardHome", "SHA256SUMS",
+    "bin/arm64/agh-dns-tproxy", "bin/armv7/agh-dns-tproxy",
+    "bin/arm64/agh-dns-tproxy.sha256", "bin/armv7/agh-dns-tproxy.sha256",
+    "scripts/firewall/ipv6-tproxy.sh",
 )
 
 

@@ -4,6 +4,10 @@ __pycache__/
 node_modules/
 dist/
 build/
+# Keep the mandatory source builder visible, not generated build assets.
+!/build/
+/build/*
+!/build/build-tproxy-helper.sh
 .next/
 coverage/
 .venv/
@@ -12,3 +16,5 @@ coverage/
 graphify-out/
 .worktrees/
 .build/
+.cache/
+.device-evidence/

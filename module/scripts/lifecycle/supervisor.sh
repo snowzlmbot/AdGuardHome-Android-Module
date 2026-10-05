@@ -114,14 +114,14 @@ supervisor_update_module_description() {
     if [ "$MODULE_LANG" = zh ]; then
         case "$supervisor_mode" in
             1) supervisor_mode_name='内网兼容' ;;
-            2) supervisor_mode_name='纯加密上游' ;;
+            2) supervisor_mode_name='加密优先（明文回退）' ;;
             3) supervisor_mode_name='Bootstrap' ;;
             *) supervisor_mode_name='未知模式' ;;
         esac
     else
         case "$supervisor_mode" in
             1) supervisor_mode_name='LAN compatible' ;;
-            2) supervisor_mode_name='Encrypted upstreams' ;;
+            2) supervisor_mode_name='Encrypted preferred (plain fallback)' ;;
             3) supervisor_mode_name='Bootstrap' ;;
             *) supervisor_mode_name='Unknown mode' ;;
         esac

@@ -16,7 +16,13 @@
 - Bundled release: `v0.107.79`
 - Official license text: `licenses/AdGuardHome-GPL-3.0.txt`
 
-发布包中的 AdGuard Home 二进制来自官方 Release，并在构建过程中验证 SHA-256。
+AdGuard Home 基于上游 commit `05ba17b282da1c4393d6a4ba4db0cf519194a362` 和本仓库查询日志刷新补丁构建；0.1.21 真机候选复用已校验的 0.1.20 ARM64/ARMv7 成品核心。构建与分发校验 SHA-256，并保留 GPL-3.0 许可证和补丁来源。
+
+## Module DNS helpers
+
+- Static HTTPS fetcher: `helper/http-fetch`, source in this repository, MIT.
+- IPv6 transparent DNS relay: `helper/dns-tproxy`, source in this repository, MIT; forwards DNS only to the module loopback core.
+- Both helpers use the Go standard library and carry architecture-specific SHA-256 files in the module package.
 
 ## KernelSU
 

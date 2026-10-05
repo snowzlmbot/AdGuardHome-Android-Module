@@ -8,6 +8,8 @@
 
 一个面向 Magisk 与 KernelSU 的模块化 AdGuard Home Android DNS 过滤项目。
 
+> 当前修复候选：**0.1.22**（小米 14 Ultra 真机验收记录见 `docs/DEVICE_VERIFICATION_0.1.22.md`，此前 0.1.21 记录见 `docs/DEVICE_VERIFICATION_0.1.21.md`）。正式 Release 链接仍指向 0.1.20，未将候选包冒充已发布版本。
+>
 > 已发布：**0.1.20**。
 >
 > [下载可安装模块 ZIP](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/AdGuardHome-Android-Module-0.1.20-agh-0.107.79.zip) · [SHA256SUMS](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/download/module-v0.1.20/SHA256SUMS) · [发布说明](https://github.com/snowzlmbot/AdGuardHome-Android-Module/releases/tag/module-v0.1.20)
@@ -41,7 +43,7 @@
 | --- | --- |
 | Root 管理器 | Magisk、KernelSU |
 | CPU 架构 | arm64、armv7 |
-| DNS 模式 | 内网兼容、纯加密上游、Bootstrap |
+| DNS 模式 | 内网兼容、加密优先（故障时明文回退）、Bootstrap |
 | 网络 | Wi‑Fi、移动数据、以太网、VPN 叠加、代理模块共存 |
 | 控制 | 启动、暂停、恢复、重启核心、固定端口 |
 | WebUI | KernelSU 原生 `webroot/` 控制台 |
@@ -68,7 +70,7 @@
 ### 首次安装选项
 
 - DNS 模式 1：内网/校园网兼容；
-- DNS 模式 2：纯加密上游，默认推荐；
+- DNS 模式 2：加密优先（故障时明文回退），默认推荐；
 - DNS 模式 3：Bootstrap；
 - IPv6 DNS 防泄漏：默认开启；
 - TCP/UDP 853 防泄漏：默认关闭（严格私人 DNS 开启时强制拦截会断网）；
@@ -76,6 +78,15 @@
 - 文件级去广告：默认关闭。
 
 音量上键表示开启/选择，音量下键表示关闭/下一项。无法读取按键时使用安全默认值，不会卡住安装。
+
+### 按应用阻断 HTTPDNS 绕过端点（0.1.22 起）
+
+部分应用（如实测的酷安）会绕过普通 DNS 过滤，改用 HTTPDNS（TLS/443 直连固定 IP）。该功能可按包名解析应用 UID，并在防火墙中对清单内端点做精确 `tcp-reset` 拒绝，使应用回落到被过滤的普通 DNS。
+
+- 开关：`/data/adb/agh/config/mode.conf` 中 `block_app_httpdns=true`（默认关闭）；
+- 目标清单：`/data/adb/agh/config/httpdns-targets.conf`，格式 `包名|IPv4|端口`，可自行增改，只在文件缺失时由安装包写入；
+- 仅支持 IPv4；端点清单是静态的，应用更新后可能失效；无效/无法解析 UID 的行会被跳过并记入 `httpdns_skipped`，最多应用 64 条，不会导致防火墙回滚；
+- 状态与计数见诊断输出 `httpdns_block` / `httpdns_rules` / `httpdns_skipped`。
 
 ## 使用入口
 

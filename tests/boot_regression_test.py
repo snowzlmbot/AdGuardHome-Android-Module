@@ -52,6 +52,21 @@ class BootRegression(unittest.TestCase):
         self.assertTrue((self.root / "state/core.state").exists(), "stale lock skipped all workers")
         self.assertFalse((self.root / "run/supervisor.lock").exists())
 
+    def test_start_returns_to_captured_root_command(self):
+        """KSU exec/ADB must receive EOF while the supervisor stays running."""
+        def stop_started():
+            (self.root/'run/stop').touch()
+            pidfile=self.root/'run/supervisor.pid'
+            if pidfile.exists():
+                pid=int(pidfile.read_text().strip())
+                try: os.kill(pid, 15)
+                except ProcessLookupError: pass
+        self.addCleanup(stop_started)
+        result=subprocess.run(['busybox','sh',str(MODULE/'scripts/lifecycle/control.sh'),'start'],
+                              env=self.env,capture_output=True,text=True,timeout=3)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('request=start',result.stdout)
+
     def test_foreign_live_pid_is_not_a_running_supervisor(self):
         foreign = subprocess.Popen(["sleep", "30"])
         def cleanup(process):

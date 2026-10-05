@@ -66,6 +66,13 @@ for fetch_arch in arm64 armv7; do
     cp "$fetch_root/$fetch_arch/agh-http-fetch" "$stage/bin/$fetch_arch/"
     cp "$fetch_root/$fetch_arch/agh-http-fetch.sha256" "$stage/bin/$fetch_arch/"
 done
+tproxy_root=${AGH_TPROXY_ROOT:-$build_tmp/tproxy}
+if [ -z "${AGH_TPROXY_ROOT:-}" ]; then sh "$ROOT/build/build-tproxy-helper.sh" "$tproxy_root" >&2; fi
+for tproxy_arch in arm64 armv7; do
+    [ -x "$tproxy_root/$tproxy_arch/agh-dns-tproxy" ] || exit 1
+    cp "$tproxy_root/$tproxy_arch/agh-dns-tproxy" "$stage/bin/$tproxy_arch/"
+    cp "$tproxy_root/$tproxy_arch/agh-dns-tproxy.sha256" "$stage/bin/$tproxy_arch/"
+done
 find "$stage" -type f -exec touch -d "@$SOURCE_DATE_EPOCH" {} +
 (
     cd "$stage"

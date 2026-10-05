@@ -33,12 +33,17 @@ firewall_state_write() {
         printf 'vpn=%s\n' "${FW_NETWORK_VPN:-unknown}"
         printf 'v4_redirect=%s\n' "${FW_V4_REDIRECT:-false}"
         printf 'v6_redirect=%s\n' "${FW_V6_REDIRECT:-false}"
+        printf 'v6_method=%s\n' "${FW_V6_METHOD:-none}"
+        printf 'v6_linklocal_tcp=%s\n' "${FW_V6_LINKLOCAL_TCP:-unknown}"
         # Legacy status field: IPv6 DNS is never replaced by DROP.
         printf 'v6_dns_block=false\n'
         printf 'dot_block=%s\n' "${FW_DOT_BLOCK:-false}"
         printf 'v6_dot_block=%s\n' "${FW_V6_DOT_BLOCK:-false}"
         printf 'doq_block=%s\n' "${FW_DOQ_BLOCK:-false}"
         printf 'v6_doq_block=%s\n' "${FW_V6_DOQ_BLOCK:-false}"
+        printf 'httpdns_block=%s\n' "${FW_HTTPDNS_BLOCK:-false}"
+        printf 'httpdns_rules=%s\n' "${FW_HTTPDNS_RULES:-0}"
+        printf 'httpdns_skipped=%s\n' "${FW_HTTPDNS_SKIPPED:-0}"
     } > "$firewall_tmp" || return 1
     chmod 0600 "$firewall_tmp"
     agh_sync
@@ -62,52 +67,100 @@ firewall_chain_exists() {
     firewall_exec "$firewall_binary" -t "$firewall_table" -L "$firewall_chain" >/dev/null 2>&1
 }
 
+# A successful full listing proves absence; a failed -C/-L does not.  Status
+# 3 is reserved for a positively identified missing optional IPv6 NAT table.
+firewall_read_table() {
+    mkdir -p "$AGH_RUN_DIR/firewall" || return 1
+    firewall_inspect_error="$AGH_RUN_DIR/firewall/.inspect.$$"
+    FW_TABLE_RULES=$(firewall_exec "$1" -t "$2" -S 2>"$firewall_inspect_error")
+    firewall_inspect_rc=$?
+    if [ "$firewall_inspect_rc" != 0 ] && [ "${3:-false}" = true ] &&
+       [ "$2" = nat ] && [ "$firewall_inspect_rc" = 3 ] &&
+       grep -Eq "table .nat.: Table does not exist" "$firewall_inspect_error"; then
+        rm -f "$firewall_inspect_error"
+        return 3
+    fi
+    rm -f "$firewall_inspect_error"
+    [ "$firewall_inspect_rc" = 0 ] || return 1
+    # A successful but empty/truncated wrapper response is not proof that the
+    # built-in OUTPUT chain or our rules are absent.
+    printf '%s\n' "$FW_TABLE_RULES" | grep -E '^(-P OUTPUT |-N OUTPUT$)' >/dev/null
+}
+
 firewall_remove_jump_all() {
     firewall_delete_binary=$1
     firewall_delete_table=$2
     firewall_delete_chain=$3
     firewall_delete_count=0
-    while firewall_exec "$firewall_delete_binary" -t "$firewall_delete_table" -C OUTPUT -j "$firewall_delete_chain" >/dev/null 2>&1; do
+    while :; do
+        firewall_read_table "$firewall_delete_binary" "$firewall_delete_table" || return 1
+        if ! printf '%s\n' "$FW_TABLE_RULES" | grep -Fx -- "-A OUTPUT -j $firewall_delete_chain" >/dev/null; then return 0; fi
+        [ "$firewall_delete_count" -lt 32 ] || return 1
         firewall_exec "$firewall_delete_binary" -t "$firewall_delete_table" -D OUTPUT -j "$firewall_delete_chain" >/dev/null 2>&1 || return 1
         firewall_delete_count=$((firewall_delete_count + 1))
-        # Bound a broken/no-op iptables wrapper rather than claim removal.
-        if [ "$firewall_delete_count" -ge 32 ]; then
-            if firewall_exec "$firewall_delete_binary" -t "$firewall_delete_table" -C OUTPUT -j "$firewall_delete_chain" >/dev/null 2>&1; then return 1; fi
+    done
+}
+
+firewall_remove_temporary_hook() {
+    firewall_temp_binary=$1
+    firewall_temp_table=$2
+    firewall_temp_chain=$3
+    firewall_temp_journal="$AGH_STATE_DIR/firewall-hook-$firewall_temp_chain"
+    [ -e "$firewall_temp_journal" ] || return 0
+    [ -f "$firewall_temp_journal" ] && [ ! -L "$firewall_temp_journal" ] || return 1
+    firewall_temp_tag=$(cat "$firewall_temp_journal") || return 1
+    case "$firewall_temp_tag" in "agh-hook-$firewall_temp_chain-"*) ;; *) return 1 ;; esac
+    firewall_temp_pid=${firewall_temp_tag#agh-hook-$firewall_temp_chain-}
+    case "$firewall_temp_pid" in ''|*[!0-9]*) return 1 ;; esac
+    firewall_temp_count=0
+    while :; do
+        firewall_read_table "$firewall_temp_binary" "$firewall_temp_table" || return 1
+        # xt_comment's -S serializer quotes comments, even without spaces.
+        if ! printf '%s\n' "$FW_TABLE_RULES" | sed 's/--comment "\([^"]*\)"/--comment \1/g' |
+            grep -Fx -- "-A OUTPUT -m comment --comment $firewall_temp_tag -j $firewall_temp_chain" >/dev/null; then
+            rm -f "$firewall_temp_journal"
             return 0
         fi
+        [ "$firewall_temp_count" -lt 32 ] || return 1
+        firewall_exec "$firewall_temp_binary" -t "$firewall_temp_table" -D OUTPUT -m comment --comment "$firewall_temp_tag" -j "$firewall_temp_chain" >/dev/null 2>&1 || return 1
+        firewall_temp_count=$((firewall_temp_count + 1))
     done
-    return 0
 }
 
 firewall_remove_chain() {
     firewall_cleanup_binary=$1
     firewall_cleanup_table=$2
     firewall_cleanup_chain=$3
-    firewall_cleanup_failed=0
-    firewall_remove_jump_all "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain" || firewall_cleanup_failed=1
-    if firewall_chain_exists "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain"; then
-        firewall_exec "$firewall_cleanup_binary" -t "$firewall_cleanup_table" -F "$firewall_cleanup_chain" >/dev/null 2>&1 || firewall_cleanup_failed=1
-        firewall_exec "$firewall_cleanup_binary" -t "$firewall_cleanup_table" -X "$firewall_cleanup_chain" >/dev/null 2>&1 || firewall_cleanup_failed=1
-        if firewall_chain_exists "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain"; then firewall_cleanup_failed=1; fi
+    firewall_read_table "$firewall_cleanup_binary" "$firewall_cleanup_table" "${4:-false}"
+    firewall_cleanup_inspect_rc=$?
+    [ "$firewall_cleanup_inspect_rc" = 3 ] && return 0
+    [ "$firewall_cleanup_inspect_rc" = 0 ] || return 1
+    firewall_remove_jump_all "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain" || return 1
+    firewall_remove_temporary_hook "$firewall_cleanup_binary" "$firewall_cleanup_table" "$firewall_cleanup_chain" || return 1
+    if printf '%s\n' "$FW_TABLE_RULES" | grep -Fx -- "-N $firewall_cleanup_chain" >/dev/null; then
+        firewall_exec "$firewall_cleanup_binary" -t "$firewall_cleanup_table" -F "$firewall_cleanup_chain" >/dev/null 2>&1 || return 1
+        firewall_exec "$firewall_cleanup_binary" -t "$firewall_cleanup_table" -X "$firewall_cleanup_chain" >/dev/null 2>&1 || return 1
     fi
-    [ "$firewall_cleanup_failed" = 0 ]
+    firewall_read_table "$firewall_cleanup_binary" "$firewall_cleanup_table" || return 1
+    ! printf '%s\n' "$FW_TABLE_RULES" | grep -E "^(-N $firewall_cleanup_chain$|-A OUTPUT -j $firewall_cleanup_chain$)" >/dev/null
 }
 
 firewall_remove_v4() {
     command -v "$firewall_binary_v4" >/dev/null 2>&1 || return 1
-    firewall_cleanup_v4_failed=0
-    firewall_remove_chain "$firewall_binary_v4" nat "$FW_V4_NAT" || firewall_cleanup_v4_failed=1
-    firewall_remove_chain "$firewall_binary_v4" filter "$FW_V4_FILTER" || firewall_cleanup_v4_failed=1
-    [ "$firewall_cleanup_v4_failed" = 0 ]
+    # Never tear down the DNS exemption while NAT may still be attached.
+    firewall_remove_chain "$firewall_binary_v4" nat "$FW_V4_NAT" || return 1
+    firewall_remove_chain "$firewall_binary_v4" filter "$FW_V4_FILTER"
 }
 
 firewall_remove_v6() {
-    # IPv6 tooling is optional and may not exist on the device at all.
-    command -v "$firewall_binary_v6" >/dev/null 2>&1 || return 0
-    firewall_cleanup_v6_failed=0
-    firewall_remove_chain "$firewall_binary_v6" nat "$FW_V6_NAT" || firewall_cleanup_v6_failed=1
-    firewall_remove_chain "$firewall_binary_v6" filter "$FW_V6_FILTER" || firewall_cleanup_v6_failed=1
-    [ "$firewall_cleanup_v6_failed" = 0 ]
+    # Optional installation is not evidence of an empty kernel table.  A lost
+    # executable must not let the supervisor stop a still-redirected listener.
+    command -v "$firewall_binary_v6" >/dev/null 2>&1 || return 1
+
+    # Android may omit CONFIG_IP6_NF_NAT: accept only its explicit ENOENT
+    # diagnostic, never permission/tool failures or an unavailable filter table.
+    firewall_remove_chain "$firewall_binary_v6" nat "$FW_V6_NAT" true || return 1
+    firewall_remove_chain "$firewall_binary_v6" filter "$FW_V6_FILTER"
 }
 
 firewall_remove() {
@@ -119,7 +172,11 @@ firewall_remove() {
     FW_V6_DOT_BLOCK=false
     FW_DOQ_BLOCK=false
     FW_V6_DOQ_BLOCK=false
+    FW_HTTPDNS_BLOCK=false
+    FW_HTTPDNS_RULES=0
+    FW_HTTPDNS_SKIPPED=0
     firewall_cleanup_all_failed=0
+    firewall_remove_tproxy || firewall_cleanup_all_failed=1
     firewall_remove_v4 || firewall_cleanup_all_failed=1
     firewall_remove_v6 || firewall_cleanup_all_failed=1
     if [ "$firewall_cleanup_all_failed" != 0 ]; then
@@ -127,6 +184,13 @@ firewall_remove() {
         return 1
     fi
     firewall_state_write removed removed
+}
+
+firewall_remove_tproxy() {
+    # Only recorded owned scope requires cleanup before the core can stop.
+    [ -e "$AGH_STATE_DIR/ipv6-tproxy.owner" ] || [ -f "$AGH_RUN_DIR/ipv6-tproxy.pid" ] || return 0
+    [ -f "$SCRIPT_DIR/ipv6-tproxy.sh" ] || return 1
+    agh_run_script "$SCRIPT_DIR/ipv6-tproxy.sh" remove
 }
 
 firewall_config_value() {
@@ -143,6 +207,7 @@ firewall_option() {
 firewall_ensure_chain() {
     # -N failing is normal only for an existing chain. Never ignore capability
     # failures or flush/rewrite a built-in or another module's chain.
+    [ "${FW_VERIFY_ONLY:-false}" != true ] || return 0
     firewall_create_binary=$1
     firewall_create_table=$2
     firewall_create_chain=$3
@@ -157,11 +222,22 @@ firewall_rule() {
     firewall_rule_table=$2
     firewall_rule_chain=$3
     shift 3
+    if [ "${FW_VERIFY_ONLY:-false}" = true ]; then
+        if [ "$firewall_rule_table" = nat ]; then
+            FW_EXPECTED_NAT="${FW_EXPECTED_NAT}${FW_EXPECTED_NAT:+
+}-A $firewall_rule_chain $*"
+        else
+            FW_EXPECTED_FILTER="${FW_EXPECTED_FILTER}${FW_EXPECTED_FILTER:+
+}-A $firewall_rule_chain $*"
+        fi
+        return 0
+    fi
     firewall_exec "$firewall_rule_binary" -t "$firewall_rule_table" -A "$firewall_rule_chain" "$@" >/dev/null 2>&1 || return 1
     firewall_exec "$firewall_rule_binary" -t "$firewall_rule_table" -C "$firewall_rule_chain" "$@" >/dev/null 2>&1
 }
 
 firewall_insert_jump() {
+    [ "${FW_VERIFY_ONLY:-false}" != true ] || return 0
     firewall_hook_binary=$1
     firewall_hook_table=$2
     firewall_hook_chain=$3
@@ -170,6 +246,125 @@ firewall_insert_jump() {
     firewall_remove_jump_all "$firewall_hook_binary" "$firewall_hook_table" "$firewall_hook_chain" || return 1
     firewall_exec "$firewall_hook_binary" -t "$firewall_hook_table" -I OUTPUT 1 -j "$firewall_hook_chain" >/dev/null 2>&1 || return 1
     firewall_exec "$firewall_hook_binary" -t "$firewall_hook_table" -C OUTPUT -j "$firewall_hook_chain" >/dev/null 2>&1
+}
+
+firewall_normalize_rules() {
+    # -S expands protocol modules/full host masks and may reorder match
+    # options. Compare the option/value pairs, retaining RULE order, rather
+    # than relying on the serializer's spelling or merely checking membership.
+    awk '
+        NF {
+            n=0
+            for (i=3; i<=NF; i+=2) {
+                if ($i == "-m" && ($(i+1) == "tcp" || $(i+1) == "udp")) continue
+                value=$(i+1)
+                if ($i == "-d") sub(/\/(32|128)$/, "", value)
+                pairs[++n]=$i " " value
+            }
+            for (i=2; i<=n; i++) {
+                item=pairs[i]; j=i-1
+                while (j>0 && pairs[j]>item) { pairs[j+1]=pairs[j]; j-- }
+                pairs[j+1]=item
+            }
+            line=$1 " " $2
+            for (i=1; i<=n; i++) line=line " " pairs[i]
+            print line
+        }'
+}
+
+firewall_verify_hook() {
+    firewall_verify_hook_chain=$3
+    firewall_read_table "$1" "$2" || return 2
+    firewall_verify_output=$(printf '%s\n' "$FW_TABLE_RULES" | sed -n '/^-A OUTPUT /p')
+    if [ "$2" = filter ] && [ "$firewall_verify_hook_chain" = "$FW_V6_FILTER" ] &&
+       printf '%s\n' "$firewall_verify_output" | grep -Fx -- '-A OUTPUT -j AGHAD6T' >/dev/null; then
+        # Either own-hook order is valid, but BOTH must precede all foreign
+        # rules. The TPROXY worker validates the policy body/DNS allowance.
+        printf '%s\n' "$firewall_verify_output" | awk '
+            $0 == "-A OUTPUT -j AGHADF6" { f++; if (NR > 2) bad=1 }
+            $0 == "-A OUTPUT -j AGHAD6T" { t++; if (NR > 2) bad=1 }
+            NR <= 2 && $0 != "-A OUTPUT -j AGHADF6" && $0 != "-A OUTPUT -j AGHAD6T" { bad=1 }
+            END { exit !(!bad && f == 1 && t == 1) }' || return 1
+    else
+        [ "$(printf '%s\n' "$firewall_verify_output" | sed -n '1p')" = "-A OUTPUT -j $firewall_verify_hook_chain" ] || return 1
+    fi
+    [ "$(printf '%s\n' "$firewall_verify_output" | grep -Fxc -- "-A OUTPUT -j $firewall_verify_hook_chain")" = 1 ]
+}
+
+firewall_repair_hook() {
+    firewall_repair_binary=$1
+    firewall_repair_table=$2
+    firewall_repair_chain=$3
+    firewall_verify_hook "$@"
+    firewall_repair_rc=$?
+    if [ "$firewall_repair_rc" = 0 ]; then
+        firewall_remove_temporary_hook "$@" || return 1
+        firewall_verify_hook "$@"
+        return $?
+    fi
+    [ "$firewall_repair_rc" = 1 ] || return 1
+    # A distinct, journaled hook covers DNS while exact canonical duplicates
+    # are removed. Never use an index from -S: netd can prepend between calls.
+    # xt_comment is optional; if unsupported, insertion fails BEFORE detaching
+    # anything. A failed/interrupted repair retains its journal and live hook
+    # for the next repair/removal, rather than flushing an attached chain.
+    firewall_repair_journal="$AGH_STATE_DIR/firewall-hook-$firewall_repair_chain"
+    if [ -e "$firewall_repair_journal" ]; then
+        [ -f "$firewall_repair_journal" ] && [ ! -L "$firewall_repair_journal" ] || return 1
+        firewall_repair_tag=$(cat "$firewall_repair_journal")
+    else
+        firewall_repair_tag="agh-hook-$firewall_repair_chain-$$"
+        (umask 077; printf '%s\n' "$firewall_repair_tag" > "$firewall_repair_journal") || return 1
+    fi
+    case "$firewall_repair_tag" in "agh-hook-$firewall_repair_chain-"*) ;; *) return 1 ;; esac
+    firewall_repair_pid=${firewall_repair_tag#agh-hook-$firewall_repair_chain-}
+    case "$firewall_repair_pid" in ''|*[!0-9]*) return 1 ;; esac
+    firewall_exec "$firewall_repair_binary" -t "$firewall_repair_table" -I OUTPUT 1 -m comment --comment "$firewall_repair_tag" -j "$firewall_repair_chain" >/dev/null 2>&1 || return 1
+    firewall_exec "$firewall_repair_binary" -t "$firewall_repair_table" -C OUTPUT -m comment --comment "$firewall_repair_tag" -j "$firewall_repair_chain" >/dev/null 2>&1 || return 1
+    firewall_remove_jump_all "$firewall_repair_binary" "$firewall_repair_table" "$firewall_repair_chain" || return 1
+    firewall_exec "$firewall_repair_binary" -t "$firewall_repair_table" -I OUTPUT 1 -j "$firewall_repair_chain" >/dev/null 2>&1 || return 1
+    # The temporary hook can sit between the two canonical IPv6 hooks until
+    # cleanup. Prove canonical publication now; verify the strict prefix last.
+    firewall_exec "$firewall_repair_binary" -t "$firewall_repair_table" -C OUTPUT -j "$firewall_repair_chain" >/dev/null 2>&1 || return 1
+    firewall_remove_temporary_hook "$firewall_repair_binary" "$firewall_repair_table" "$firewall_repair_chain" || return 1
+    firewall_verify_hook "$firewall_repair_binary" "$firewall_repair_table" "$firewall_repair_chain"
+}
+
+firewall_verify_table() {
+    firewall_verify_binary=$1
+    firewall_verify_table=$2
+    firewall_verify_chain=$3
+    firewall_verify_expected=$4
+    firewall_read_table "$firewall_verify_binary" "$firewall_verify_table" "${5:-false}"
+    firewall_verify_rc=$?
+    if [ "$firewall_verify_rc" = 3 ]; then
+        [ -z "$firewall_verify_expected" ] && return 0
+        return 1
+    fi
+    [ "$firewall_verify_rc" = 0 ] || return 2
+    firewall_verify_actual=$(printf '%s\n' "$FW_TABLE_RULES" | sed -n "/^-A $firewall_verify_chain /p")
+    [ "$(printf '%s\n' "$firewall_verify_actual" | firewall_normalize_rules)" = \
+      "$(printf '%s\n' "$firewall_verify_expected" | firewall_normalize_rules)" ] || return 1
+    if [ -z "$firewall_verify_expected" ]; then
+        ! printf '%s\n' "$FW_TABLE_RULES" | grep -E "^(-N $firewall_verify_chain$|-A OUTPUT -j $firewall_verify_chain$)" >/dev/null
+        return $?
+    fi
+    printf '%s\n' "$FW_TABLE_RULES" | grep -Fx -- "-N $firewall_verify_chain" >/dev/null || return 1
+    return 0
+}
+
+firewall_verify_family() {
+    FW_EXPECTED_NAT=; FW_EXPECTED_FILTER=
+    FW_VERIFY_ONLY=true
+    firewall_apply_family "$@"
+    FW_VERIFY_ONLY=false
+    firewall_verify_table "$1" filter "$4" "$FW_EXPECTED_FILTER" || return $?
+    firewall_verify_table "$1" nat "$3" "$FW_EXPECTED_NAT" "$([ "$2" = v6 ] && printf true)" || return $?
+    # Repair hooks only once BOTH chain bodies are proven correct.  Publish
+    # the listener exemption first, NAT last, without flushing either chain.
+    if [ -n "$FW_EXPECTED_FILTER" ]; then firewall_repair_hook "$1" filter "$4" || return 2; fi
+    if [ -n "$FW_EXPECTED_NAT" ]; then firewall_repair_hook "$1" nat "$3" || return 2; fi
+    return 0
 }
 
 firewall_add_vpn_bypass() {
@@ -198,6 +393,107 @@ firewall_fail() {
     return 1
 }
 
+# Resolve an installed package to its UID from the static packages.list.
+# This avoids binder/`cmd` entirely: the module's boot SELinux domain is not
+# allowed to call the package service, but can read this file as root.
+# Prints the UID of the first matching user; failure exits 1.
+firewall_resolve_uid() {
+    firewall_resolve_pkg=$1
+    [ -n "$firewall_resolve_pkg" ] || return 1
+    firewall_resolve_list=${FW_PACKAGES_LIST:-/data/system/packages.list}
+    [ -f "$firewall_resolve_list" ] || return 1
+    firewall_resolve_value=$(awk -v p="$firewall_resolve_pkg" '
+        $1 == p && $2 ~ /^[0-9]+$/ { print $2; exit }
+    ' "$firewall_resolve_list") || return 1
+    case "$firewall_resolve_value" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    printf '%s\n' "$firewall_resolve_value"
+}
+
+# Strict dotted-quad check that also rejects loopback (127/8), unspecified
+# (0/8), multicast (224/4) and reserved/broadcast (240/4) addresses. IPv6
+# input has no dotted-quad shape and is rejected here as unsupported.
+firewall_valid_httpdns_ip() {
+    firewall_httpdns_ip=$1
+    firewall_httpdns_ifs=$IFS
+    IFS=.
+    set -- $firewall_httpdns_ip
+    IFS=$firewall_httpdns_ifs
+    [ "$#" -eq 4 ] || return 1
+    for firewall_httpdns_octet in "$@"; do
+        case "$firewall_httpdns_octet" in
+            ''|*[!0-9]*|0?*) return 1 ;;
+        esac
+        [ "$firewall_httpdns_octet" -le 255 ] 2>/dev/null || return 1
+    done
+    [ "$1" -ge 1 ] 2>/dev/null || return 1
+    [ "$1" -ne 127 ] 2>/dev/null || return 1
+    [ "$1" -lt 224 ] 2>/dev/null
+}
+
+firewall_valid_httpdns_port() {
+    case "$1" in ''|*[!0-9]*|0?*) return 1 ;; esac
+    [ "$1" -ge 1 ] 2>/dev/null && [ "$1" -le 65535 ] 2>/dev/null
+}
+
+# Per-app HTTPDNS bypass endpoint rules. Invalid targets, unresolvable or
+# root UIDs and rules beyond the 64-target cap are skipped and logged, never
+# failing the whole firewall; only a real iptables append error propagates.
+firewall_httpdns_rules() {
+    firewall_httpdns_binary=$1
+    firewall_httpdns_family=$2
+    firewall_httpdns_chain=$3
+    FW_HTTPDNS_RULES=0
+    FW_HTTPDNS_SKIPPED=0
+    [ "$FW_WANT_HTTPDNS" = true ] || return 0
+    [ "$firewall_httpdns_family" = v4 ] || return 0
+    firewall_httpdns_targets="$AGH_CONFIG_DIR/httpdns-targets.conf"
+    if [ ! -f "$firewall_httpdns_targets" ]; then
+        log_message firewall 'httpdns block enabled but target file is missing; no rules applied'
+        return 0
+    fi
+    firewall_httpdns_skip() {
+        firewall_httpdns_reason=$1
+        FW_HTTPDNS_SKIPPED=$((FW_HTTPDNS_SKIPPED + 1))
+        log_message firewall "httpdns: skipped line $firewall_httpdns_line: $firewall_httpdns_reason"
+    }
+    firewall_httpdns_line=0
+    while IFS='|' read -r firewall_httpdns_pkg firewall_httpdns_ip firewall_httpdns_port firewall_httpdns_extra; do
+        firewall_httpdns_line=$((firewall_httpdns_line + 1))
+        case "$firewall_httpdns_pkg" in
+            \#*) continue ;;
+            '') continue ;;
+        esac
+        case "$firewall_httpdns_pkg" in
+            *[!A-Za-z0-9._-]*) firewall_httpdns_skip 'invalid package'; continue ;;
+        esac
+        if [ -n "$firewall_httpdns_extra" ] || [ -z "$firewall_httpdns_ip" ] || [ -z "$firewall_httpdns_port" ]; then
+            firewall_httpdns_skip 'malformed target'; continue
+        fi
+        if ! firewall_valid_httpdns_ip "$firewall_httpdns_ip"; then
+            firewall_httpdns_skip 'invalid or unsupported address'; continue
+        fi
+        if ! firewall_valid_httpdns_port "$firewall_httpdns_port"; then
+            firewall_httpdns_skip 'invalid port'; continue
+        fi
+        if [ "$FW_HTTPDNS_RULES" -ge 64 ]; then
+            firewall_httpdns_skip 'rule cap reached'; continue
+        fi
+        firewall_httpdns_uid=$(firewall_resolve_uid "$firewall_httpdns_pkg") || {
+            firewall_httpdns_skip 'package uid not resolvable'; continue
+        }
+        if [ "$firewall_httpdns_uid" = 0 ]; then
+            firewall_httpdns_skip 'root uid target'; continue
+        fi
+        firewall_rule "$firewall_httpdns_binary" filter "$firewall_httpdns_chain" \
+            -p tcp -d "$firewall_httpdns_ip" --dport "$firewall_httpdns_port" \
+            -m owner --uid-owner "$firewall_httpdns_uid" -j REJECT --reject-with tcp-reset || return 1
+        FW_HTTPDNS_RULES=$((FW_HTTPDNS_RULES + 1))
+    done < "$firewall_httpdns_targets"
+    return 0
+}
+
 firewall_apply_family() {
     firewall_apply_binary=$1
     firewall_apply_family=$2
@@ -207,7 +503,8 @@ firewall_apply_family() {
     firewall_apply_dns=$6
     firewall_apply_dot=$7
     firewall_apply_doq=$8
-    [ "$firewall_apply_dns" = true ] || [ "$firewall_apply_dot" = true ] || [ "$firewall_apply_doq" = true ] || return 0
+    firewall_apply_httpdns=$9
+    [ "$firewall_apply_dns" = true ] || [ "$firewall_apply_dot" = true ] || [ "$firewall_apply_doq" = true ] || [ "$firewall_apply_httpdns" = true ] || return 0
     FW_APPLY_REASON=${firewall_apply_family}_filter_chain
     firewall_ensure_chain "$firewall_apply_binary" filter "$firewall_apply_filter" || return 1
     if [ "$firewall_apply_dns" = true ]; then
@@ -252,6 +549,10 @@ firewall_apply_family() {
             firewall_rule "$firewall_apply_binary" filter "$firewall_apply_filter" -p udp --dport "$firewall_doq_port" -j DROP || return 1
         done
     fi
+    if [ "$firewall_apply_httpdns" = true ]; then
+        FW_APPLY_REASON=${firewall_apply_family}_httpdns_rules
+        firewall_httpdns_rules "$firewall_apply_binary" "$firewall_apply_family" "$firewall_apply_filter" || return 1
+    fi
     # Publish filter first, NAT last: never expose redirected clone DNS to the
     # rejecting netd chain while its narrowly scoped exemption is absent.
     FW_APPLY_REASON=${firewall_apply_family}_filter_jump
@@ -267,8 +568,12 @@ firewall_ensure() {
     firewall_binary_v4=${IPTABLES_BIN:-iptables}
     firewall_binary_v6=${IP6TABLES_BIN:-ip6tables}
     FW_V4_REDIRECT=false; FW_V6_REDIRECT=false
+    FW_V6_METHOD=none
+    FW_V6_LINKLOCAL_TCP=unknown
+    FW_USE_TPROXY=false
     FW_DOT_BLOCK=false; FW_V6_DOT_BLOCK=false
     FW_DOQ_BLOCK=false; FW_V6_DOQ_BLOCK=false
+    FW_HTTPDNS_BLOCK=false; FW_HTTPDNS_RULES=0; FW_HTTPDNS_SKIPPED=0
     FW_V6_REASON=
     FW_WANT_V4_DNS=$(firewall_option redirect_ipv4_dns true)
     FW_WANT_V6_DNS=$(firewall_option redirect_ipv6_dns true)
@@ -278,6 +583,7 @@ firewall_ensure() {
     FW_WANT_V6_DOT=$(firewall_option block_ipv6_dot false)
     FW_WANT_V4_DOQ=$(firewall_option block_ipv4_doq false)
     FW_WANT_V6_DOQ=$(firewall_option block_ipv6_doq false)
+    FW_WANT_HTTPDNS=$(firewall_option block_app_httpdns false)
     FW_NETWORK_STATE=$(firewall_state_value "$AGH_STATE_DIR/network.state" state); [ -n "$FW_NETWORK_STATE" ] || FW_NETWORK_STATE=unknown
     FW_NETWORK_MODE=$(firewall_state_value "$AGH_STATE_DIR/network.state" mode); [ -n "$FW_NETWORK_MODE" ] || FW_NETWORK_MODE=unknown
     FW_NETWORK_TYPE=$(firewall_state_value "$AGH_STATE_DIR/network.state" network); [ -n "$FW_NETWORK_TYPE" ] || FW_NETWORK_TYPE=unknown
@@ -297,34 +603,75 @@ firewall_ensure() {
         firewall_state_write bypassed vpn_passthrough
         return 0
     fi
-    # Detach old NAT before rebuilding its narrowly scoped filter exemption.
-    firewall_remove_v4 || { firewall_fail v4_remove_failed; return 1; }
-    FW_V6_CLEANUP_OK=true
-    firewall_remove_v6 || { FW_V6_CLEANUP_OK=false; FW_V6_REASON=v6_remove_failed; }
-
-    if ! firewall_apply_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ"; then
-        firewall_fail "$FW_APPLY_REASON"
+    if [ "$FW_WANT_V6_DNS" = true ] && [ "$FW_CORE_IPV6_READY" != true ]; then
+        FW_WANT_V6_DNS=false
+        FW_V6_REASON=v6_listener_unready
+    fi
+    if [ "$FW_WANT_V6_DNS" = true ] && [ -x "$AGH_ROOT/bin/agh-dns-tproxy" ] && [ -f "$SCRIPT_DIR/ipv6-tproxy.sh" ]; then
+        firewall_read_table "$firewall_binary_v6" nat true
+        FW_NAT_CAPABILITY=$?
+        # Unknown inspection errors never select a different routing backend.
+        if [ "$FW_NAT_CAPABILITY" = 3 ]; then
+            FW_USE_TPROXY=true
+            FW_WANT_V6_DNS=false
+        fi
+    fi
+    if [ "$FW_USE_TPROXY" != true ]; then
+        firewall_remove_tproxy || { firewall_state_write degraded tproxy_remove_failed; return 1; }
+    fi
+    firewall_verify_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ" "$FW_WANT_HTTPDNS"
+    FW_V4_VERIFY_RC=$?
+    if [ "$FW_V4_VERIFY_RC" = 2 ]; then
+        firewall_state_write degraded v4_inspect_failed
         return 1
+    fi
+    # Only changed or damaged rules need the existing detach/rebuild path.
+    if [ "$FW_V4_VERIFY_RC" != 0 ]; then
+        firewall_remove_v4 || { firewall_fail v4_remove_failed; return 1; }
+        if ! firewall_apply_family "$firewall_binary_v4" v4 "$FW_V4_NAT" "$FW_V4_FILTER" 127.0.0.1/32 "$FW_WANT_V4_DNS" "$FW_WANT_V4_DOT" "$FW_WANT_V4_DOQ" "$FW_WANT_HTTPDNS"; then
+            firewall_fail "$FW_APPLY_REASON"
+            return 1
+        fi
+    fi
+    FW_V6_CLEANUP_OK=true
+    FW_V6_VERIFY_RC=1
+    if command -v "$firewall_binary_v6" >/dev/null 2>&1; then
+        firewall_verify_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ" false
+        FW_V6_VERIFY_RC=$?
+    fi
+    if [ "$FW_V6_VERIFY_RC" = 2 ]; then
+        FW_V6_CLEANUP_OK=false; FW_V6_REASON=v6_inspect_failed
+    elif [ "$FW_V6_VERIFY_RC" != 0 ]; then
+        firewall_remove_v6 || { FW_V6_CLEANUP_OK=false; FW_V6_REASON=v6_remove_failed; }
     fi
     FW_V4_REDIRECT=$FW_WANT_V4_DNS
     FW_DOT_BLOCK=$FW_WANT_V4_DOT
     FW_DOQ_BLOCK=$FW_WANT_V4_DOQ
+    FW_HTTPDNS_BLOCK=$FW_WANT_HTTPDNS
     if [ "$FW_V6_CLEANUP_OK" = true ]; then
-        if [ "$FW_WANT_V6_DNS" = true ] && [ "$FW_CORE_IPV6_READY" != true ]; then
-            FW_WANT_V6_DNS=false
-            FW_V6_REASON=v6_listener_unready
-        fi
         if [ "$FW_WANT_V6_DNS" = true ] || [ "$FW_WANT_V6_DOT" = true ] || [ "$FW_WANT_V6_DOQ" = true ]; then
             if ! command -v "$firewall_binary_v6" >/dev/null 2>&1; then
                 FW_V6_REASON=ip6tables_missing
-            elif firewall_apply_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ"; then
+            elif [ "$FW_V6_VERIFY_RC" = 0 ] || firewall_apply_family "$firewall_binary_v6" v6 "$FW_V6_NAT" "$FW_V6_FILTER" ::1/128 "$FW_WANT_V6_DNS" "$FW_WANT_V6_DOT" "$FW_WANT_V6_DOQ" false; then
                 FW_V6_REDIRECT=$FW_WANT_V6_DNS
+                [ "$FW_V6_REDIRECT" != true ] || FW_V6_METHOD=nat
+                [ "$FW_V6_REDIRECT" != true ] || FW_V6_LINKLOCAL_TCP=true
                 FW_V6_DOT_BLOCK=$FW_WANT_V6_DOT
                 FW_V6_DOQ_BLOCK=$FW_WANT_V6_DOQ
             else
                 FW_V6_REASON=$FW_APPLY_REASON
                 firewall_remove_v6 || FW_V6_REASON="${FW_V6_REASON}:rollback_failed"
             fi
+        fi
+    fi
+    if [ "$FW_USE_TPROXY" = true ]; then
+        if agh_run_script "$SCRIPT_DIR/ipv6-tproxy.sh" once &&
+           agh_run_script "$SCRIPT_DIR/ipv6-tproxy.sh" check-ready; then
+            FW_V6_REDIRECT=true
+            FW_V6_METHOD=tproxy
+            FW_V6_LINKLOCAL_TCP=false
+        else
+            FW_V6_REASON="tproxy_$(read_key_value reason "$AGH_STATE_DIR/ipv6-tproxy.state")"
         fi
     fi
     # IPv6 capability failures MUST NOT remove a working IPv4 redirect, nor

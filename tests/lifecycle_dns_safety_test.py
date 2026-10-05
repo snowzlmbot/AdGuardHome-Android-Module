@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+import firewall_regression_test as firewall
+
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / 'module'
 
@@ -82,6 +84,28 @@ fi
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn('core:stop', self.events())
         self.assertTrue((control / 'restart-core').exists(), 'failed restart request lost')
+
+    def test_real_firewall_inspection_failure_keeps_core_running(self):
+        fixture = firewall.FirewallRegression()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.assert_success(fixture.run_worker())
+        self.env.update(fixture.env)
+        for key, folder in [('CONFIG', 'config'), ('STATE', 'state'), ('RUN', 'run'),
+                            ('LOG', 'logs'), ('DATA', 'data'), ('BACKUP', 'backup')]:
+            self.env['AGH_' + key + '_DIR'] = str(fixture.base / 'agh' / folder)
+        workers = self.root / 'workers'
+        (workers / 'firewall-worker.sh').write_text('#!/bin/sh\nexec sh "' + str(firewall.WORKER) + '" "$@"\n')
+        control = fixture.base / 'agh/run/control'
+        control.mkdir()
+        (control / 'restart-core').touch()
+        result = self.invoke('once', IPTABLES_FAIL_INSPECT='1')
+        self.assertNotEqual(result.returncode, 0, 'unsafe restart accepted unreadable firewall')
+        events = fixture.base / 'agh/events'
+        self.assertNotIn('core:stop', events.read_text().splitlines() if events.exists() else [])
+        self.assertTrue((control / 'restart-core').exists())
+        self.assertEqual(fixture.status()['state'], 'degraded')
+        self.assertTrue(fixture.packet()['dnat'], 'fixture did not retain a live redirect')
 
     def test_stop_consumes_cleanup_without_another_daemon_cycle(self):
         result = self.invoke('stop')

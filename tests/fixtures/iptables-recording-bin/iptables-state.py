@@ -31,15 +31,43 @@ def main():
     table = "filter"
     if args[:1] == ["-t"]:
         table, args = args[1], args[2:]
-    if len(args) < 2:
+    if os.environ.get(prefix + "_FAIL_INSPECT") == "1" and args[:1] in (["-C"], ["-L"], ["-S"]):
+        print("Permission denied (you must be root)", file=sys.stderr)
+        return 4
+    if not args:
         return 2
-    command, chain, *rule = args
+    command = args[0]
+    chain = args[1] if len(args) > 1 else None
+    rule = args[2:]
     tables = json.loads(state.read_text()) if state.exists() else {
         "nat": {"OUTPUT": []}, "filter": {"OUTPUT": []}
     }
     if table not in tables:
-        return 2
+        print("ip6tables v1.8.7 (legacy): can't initialize ip6tables table `" + table +
+              "': Table does not exist (do you need to insmod?)", file=sys.stderr)
+        return 3
     chains = tables[table]
+    # Model netd acquiring xtables between the worker's listing and delete.
+    # Consume each table's injection once so recovery remains deterministic.
+    prepend_path = os.environ.get(prefix + "_PREPEND_ON_DELETE_FILE")
+    if command == "-D" and chain == "OUTPUT" and prepend_path:
+        pending_file = Path(prepend_path)
+        pending = json.loads(pending_file.read_text())
+        if table in pending:
+            chains[chain].insert(0, pending.pop(table))
+            pending_file.write_text(json.dumps(pending))
+            state.write_text(json.dumps(tables, sort_keys=True), encoding="utf-8")
+    if command == "-S":
+        if chain is not None and chain not in chains:
+            return 1
+        for name, rules in chains.items():
+            if chain is None or chain == name:
+                print("-P " + name + " ACCEPT" if name == "OUTPUT" else "-N " + name)
+                for item in rules:
+                    print("-A " + name + " " + " ".join(item))
+        return 0
+    if chain is None:
+        return 2
     if command == "-N":
         if chain in chains:
             return 1
@@ -74,9 +102,15 @@ def main():
     elif command == "-C":
         return 0 if rule in chains[chain] else 1
     elif command == "-D":
-        if rule not in chains[chain]:
-            return 1
-        chains[chain].remove(rule)  # iptables removes ONE duplicate, not all.
+        if len(rule) == 1 and rule[0].isdigit():
+            position = int(rule[0])
+            if not 1 <= position <= len(chains[chain]):
+                return 1
+            chains[chain].pop(position - 1)
+        else:
+            if rule not in chains[chain]:
+                return 1
+            chains[chain].remove(rule)  # iptables removes ONE duplicate, not all.
     else:
         return 2
     state.parent.mkdir(parents=True, exist_ok=True)
@@ -85,4 +119,13 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    result = main()
+    prefix = "IP6TABLES" if sys.argv[1] == "6" else "IPTABLES"
+    snapshot = os.environ.get(prefix + "_SNAPSHOT_FILE")
+    if snapshot:
+        record = os.environ[prefix + "_RECORD_FILE"]
+        state = Path(os.environ.get(prefix + "_STATE_FILE", record + ".state"))
+        with open(snapshot, "a", encoding="utf-8") as stream:
+            stream.write(json.dumps({"args": sys.argv[2:], "returncode": result,
+                                     "rules": json.loads(state.read_text())}) + "\n")
+    sys.exit(result)
