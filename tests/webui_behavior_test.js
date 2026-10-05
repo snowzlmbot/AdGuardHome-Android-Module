@@ -46,5 +46,8 @@ const context=vm.createContext({window, document:{getElementById:element, docume
   state={...state, file_rules_state:'failed',file_rules_reason:'checksum_download'};
   await vm.runInContext('refresh()',context);
   assert.ok(element('fileRulesMeta').textContent.includes('checksum_download'),'show rule download failure reason');
+  state={...state, ipv6_dns_block:'true', ipv6_dns_applied:'false', firewall:'degraded', firewall_reason:'v6_nat_chain'};
+  await vm.runInContext('setPolicy("redirect_ipv6_dns", true)',context);
+  assert.ok(element('toast').textContent.includes('操作失败'),'saved IPv6 policy must not be reported applied when interception failed');
   console.log('WebUI behavior passed: render, disable/read-back/re-enable VPN, localized bypass, rule failure reason');
 })().catch(error=>{console.error(error);process.exitCode=1;});

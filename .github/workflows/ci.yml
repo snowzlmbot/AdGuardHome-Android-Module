@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install BusyBox
-        run: sudo apt-get update && sudo apt-get install -y busybox-static
+        run: sudo apt-get update && sudo apt-get install -y busybox-static gcc iproute2 iptables
       - name: Run DNS filter regressions
         run: |
           python3 tests/dns_filter_regression.py
@@ -26,6 +26,11 @@ jobs:
           node tests/webui_behavior_test.js
           python3 tests/vpn_policy_test.py
           python3 tests/cloud_rules_live_test.py
+      - name: Verify IPv6 DNS relay and reversible routing lifecycle
+        run: |
+          sudo -E unshare -n sh -c 'ip link set lo up; cd helper/dns-tproxy && go test -race ./...'
+          sudo -E python3 tests/tproxy_lifecycle_test.py
+          python3 tests/tproxy_firewall_integration_test.py
       - name: Verify actual cloud download with BusyBox only
         run: |
           sh build/build-fetch-helper.sh "$RUNNER_TEMP/fetch"
@@ -77,8 +82,9 @@ jobs:
         run: |
           build/build-fixed-binaries.sh 0.107.79 "$RUNNER_TEMP/binaries"
           sh build/build-fetch-helper.sh "$RUNNER_TEMP/fetch"
+          sh build/build-tproxy-helper.sh "$RUNNER_TEMP/tproxy"
           version=$(sed -n 's/^version=//p' module/module.prop)
-          AGH_FETCH_ROOT="$RUNNER_TEMP/fetch" AGH_BINARY_ROOT="$RUNNER_TEMP/binaries" build/package.sh "$version" 0.107.79 dist
+          AGH_TPROXY_ROOT="$RUNNER_TEMP/tproxy" AGH_FETCH_ROOT="$RUNNER_TEMP/fetch" AGH_BINARY_ROOT="$RUNNER_TEMP/binaries" build/package.sh "$version" 0.107.79 dist
           printf '%s\n' "$GITHUB_SHA" > dist/SOURCE_COMMIT
           (cd dist && sha256sum *.zip > SHA256SUMS)
       - name: Exercise the patched native binary

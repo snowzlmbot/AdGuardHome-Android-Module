@@ -51,7 +51,7 @@ install_select_mode() {
     i18n_ui_print "- 选择 DNS 模式" "- Select DNS mode"
     if install_choice "模式 1：内网/校园网兼容" "Mode 1: LAN/campus compatibility" false; then
         INSTALL_SELECTED_MODE=1
-    elif install_choice "模式 2：纯加密上游（推荐）" "Mode 2: encrypted upstreams (recommended)" true; then
+    elif install_choice "模式 2：加密优先（明文回退，推荐）" "Mode 2: encrypted preferred (plain fallback, recommended)" true; then
         INSTALL_SELECTED_MODE=2
     else
         INSTALL_SELECTED_MODE=3

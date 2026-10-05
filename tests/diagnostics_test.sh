@@ -35,5 +35,9 @@ printf '%s\n' "$log_output" | grep -F 'safe-message' >/dev/null || fail 'diagnos
 printf '%s\n' "$log_output" | grep -F 'super-secret' >/dev/null && fail 'diagnostic logs leaked password' || true
 printf '%s\n' "$log_output" | grep -F 'abc123' >/dev/null && fail 'diagnostic logs leaked token' || true
 printf '%s\n' "$output" | grep -F '35001' >/dev/null || fail 'diagnostics omitted web port'
+printf 'redirect_ipv6_dns=true\n' > "$AGH_CONFIG_DIR/mode.conf"
+printf 'state=degraded\nreason=v6_nat_chain\nv6_redirect=false\n' > "$AGH_STATE_DIR/firewall.state"
+output=$(sh "$ROOT/module/scripts/diagnostics/diagnostics.sh")
+printf '%s\n' "$output" | grep -Fx 'ipv6_dns_applied=false' >/dev/null || fail 'requested IPv6 policy misreported as applied'
 
 printf '%s\n' 'diagnostics tests passed'

@@ -124,7 +124,10 @@ case "$control_command" in
     start)
         ensure_dirs || exit 1
         rm -f "$AGH_STATE_DIR/core.disabled" "$AGH_STATE_DIR/paused" "$AGH_RUN_DIR/stop"
-        agh_run_script "$SCRIPT_DIR/supervisor.sh" daemon >/dev/null 2>&1 &
+        (
+            if [ -n "${AGH_BUSYBOX:-}" ]; then exec "$AGH_BUSYBOX" sh "$SCRIPT_DIR/supervisor.sh" daemon
+            else exec sh "$SCRIPT_DIR/supervisor.sh" daemon; fi
+        ) </dev/null >>"$AGH_LOG_DIR/supervisor.log" 2>&1 &
         printf '%s\n' 'request=start'
         ;;
     backup) control_backup create ;;

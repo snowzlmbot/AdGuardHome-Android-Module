@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.21 (candidate)
+
+- Fix false VPN detection from inactive system tunnels and Android VPN subscriptions; choose the active default network instead of stale agents and requests.
+- Add a reversible, loopback-only IPv6 DNS TPROXY fallback for kernels without IPv6 NAT, including scoped link-local UDP routing. Link-local IPv6 TCP remains explicitly unfiltered because the tested kernel resets its recirculated handshake.
+- Verify unchanged firewall rules without destructive refresh, keep listeners alive when removal cannot be proven, and preserve unrelated Android/module firewall rules.
+- Distinguish requested and applied IPv6 policy in diagnostics/WebUI. Label mode 2 accurately as encrypted-preferred with plaintext availability fallback.
+- Add real-device DNS probes, network/lifecycle regressions, a statically built DNS relay, checksummed installation and package verification.
+- Preserve credentials, ports, custom configuration and disabled file-ad cleanup; do not disable global IPv6, rewrite Private DNS settings, or clear application data.
+
 ## 0.1.20
 
 - Accept scoped IPv6 DNS addresses reported by Android without disabling a usable network.

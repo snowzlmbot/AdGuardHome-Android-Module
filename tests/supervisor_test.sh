@@ -56,7 +56,7 @@ sh "$ROOT/module/scripts/lifecycle/supervisor.sh" once || true
 grep -F 'state=ready' "$AGH_STATE_DIR/core.state" >/dev/null || fail 'optional failure changed core'
 grep -F 'state=failed' "$AGH_STATE_DIR/proxy.state" >/dev/null || fail 'proxy failure not isolated'
 grep -F 'state=failed' "$AGH_STATE_DIR/file.state" >/dev/null || fail 'file failure not isolated'
-grep -F '纯加密上游' "$MODULE_PROP_FILE" >/dev/null || fail 'module mode description missing'
+grep -F '加密优先（明文回退）' "$MODULE_PROP_FILE" >/dev/null || fail 'module mode description missing'
 
 rm -f "$AGH_STATE_DIR/proxy.state" "$AGH_STATE_DIR/file.state" "$AGH_RUN_DIR/firewall/request"
 touch "$AGH_STATE_DIR/paused"

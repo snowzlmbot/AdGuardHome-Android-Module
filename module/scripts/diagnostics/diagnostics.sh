@@ -53,7 +53,7 @@ diagnostics_rules="$AGH_STATE_DIR/file-rules.state"
 diagnostics_mode=$(sed -n 's/^mode=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p')
 case "$diagnostics_mode" in
     1) diagnostics_mode_name='内网兼容' ;;
-    2) diagnostics_mode_name='纯加密上游' ;;
+    2) diagnostics_mode_name='加密优先（明文回退）' ;;
     3) diagnostics_mode_name='Bootstrap' ;;
     *) diagnostics_mode_name='未知' ;;
 esac
@@ -113,6 +113,9 @@ printf 'paused=%s\n' "$( [ -f "$AGH_STATE_DIR/paused" ] && printf true || printf
 printf 'proxy_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/proxy-adapter.conf" 2>/dev/null && printf true || printf false )"
 printf 'file_enabled=%s\n' "$( grep -q '^enabled=true$' "$AGH_CONFIG_DIR/file-adapter.conf" 2>/dev/null && printf true || printf false )"
 printf 'ipv6_dns_block=%s\n' "$( sed -n 's/^redirect_ipv6_dns=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
+printf 'ipv6_dns_applied=%s\n' "$(state_value "$diagnostics_firewall" v6_redirect)"
+printf 'ipv6_dns_method=%s\n' "$(state_value "$diagnostics_firewall" v6_method)"
+printf 'ipv6_linklocal_tcp=%s\n' "$(state_value "$diagnostics_firewall" v6_linklocal_tcp)"
 printf 'dot_block=%s\n' "$( sed -n 's/^block_ipv4_dot=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'doq_block=%s\n' "$( sed -n 's/^block_ipv4_doq=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
 printf 'vpn_passthrough=%s\n' "$( sed -n 's/^bypass_vpn_traffic=//p' "$AGH_CONFIG_DIR/mode.conf" 2>/dev/null | sed -n '1p' )"
